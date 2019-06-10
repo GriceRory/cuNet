@@ -1,4 +1,4 @@
 struct sample{
-  float *input;
-  float *output;
+  matrix input;
+  matrix output;
 };
