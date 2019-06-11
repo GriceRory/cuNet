@@ -4,12 +4,12 @@ cuda based neural network
 
 
 
-sample files contain an input and output matrix.
+sample files contain an input and output matrix. (in progress)
 
-database files contain samples.
+database files contain samples. (in progress)
 
-matrix files contain matrix structs used for linear algebra.
+matrix files contain matrix structs used for linear algebra. (in progress)
 
-trainingData files contain data used to calculate backpropogation for each sample.
+trainingData files contain data used to calculate backpropogation for each sample. (in progress)
 
-network files contain matrix data of weights and biases.
+network files contain matrix data of weights and biases. (in progress)
