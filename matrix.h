@@ -10,7 +10,7 @@ matrix matrixAdd(matrix a, matrix b);
 __global__ matrixAdd(matrix a, matrix b, matrix out);
 
 //memory
-matrix cudaBuildMatrix(int height, int width, int stride);
+void cudaBuildMatrix(matrix *d_m, int height, int width, int stride);
 matrix buildMatrix(int height, int width, int stride);
 void copyDeviceToHost(matrix *device, matrix *host);
 void copyHostToDevice(matrix *host, matrix *device);

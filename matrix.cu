@@ -14,7 +14,7 @@ __device__ float getElement(matrix m, int row, int col){
 __device__ void setElement(matrix m, int row, int col, float element){
 	m.elements[row*m.stride + col] = element;
 }
-__device__ matrix getSubMatrix(matrix m, int row, int col, int blockSize){
+__device__ matrix getSubmatrix(matrix m, int row, int col, int blockSize){
 	matrix sub;
 	sub.width = blockSize;
 	sub.height = blockSize;
@@ -23,120 +23,111 @@ __device__ matrix getSubMatrix(matrix m, int row, int col, int blockSize){
 	return sub;
 }
 
-
 //algebra
-__global__ matrixMultiply(matrix a, matrix b, matrix out){
+
+__global__ void matrixMultiply(matrix A, matrix B, matrix *out, int blockSize){
 	int blockRow = blockIdx.x;
-	int blockCol = blockIdx.y;
-	int blockSize = blockDim.x;
+	iny blockCol = blockIdx.y;
 
-	matrix outSub = getSubMatrix(out, blockRow, blockCol, blockSize);
-
-	float Cval = 0;
+	matrix outSub = getSubmatrix(c, blockRow, blockCol, blockSize);
+	float Cvalue = 0.0;
 
 	int row = threadIdx.y;
 	int col = threadIdx.x;
 
-	for(int i = 0; i < (a.width/blockSize); i++){
-		matrix Asub = getSubMatrix(a, blockRow, i, blockSize);
-		matrix Bsub = getSubMatrix(b, blockRow, i, blockSize);
+	for(int i = 0; i < (a.width / blockSize); i++){
+		matrix Asub = getSubmatrix(A, blockRow, i, blockSize);
+		matrix Bsub = getSubmatrix(B, i, blockCol, blockSize);
 
 		__shared__ float As[blockSize][blockSize];
 		__shared__ float Bs[blockSize][blockSize];
 
-		__syncthreads();
+		As[row][col] = getElement(Asub, row, col);
+		Bs[row][col] = getElement(Bsub, row, col);
 
+		__syncthreads();
 		for(int j = 0; j < blockSize; j++){
-			Cval += As[row][j] * Bs[j][col];
+			Cvalue += As[row][j]*Bs[j][col];
 		}
 		__syncthreads();
 	}
-	setElement(outSub, row, col, Cval);
-}
-matrix matrixMultiply(matrix a, matrix b){
-	matrix d_a;
-	copyHostToDevice(&a, &d_a);
-	matrix d_b;
-	copyHostToDevice(&b, &d_b);
-	matrix d_out = cudaBuildMatrix(a.height, b.width, a.stride);
-
-	int blockSize = 16
-	dim3 dimBlock(blockSize, blockSize);
-	dim3 dimGrid(b.width/dimBlock.x, a.height/dimBlock.y);
-	matrixMultiply<<<dimGrid, dimBlock>>>(d_A, d_b, d_out);
-
-	matrix out;
-	copyDeviceToHost(&d_out, &out);
-	return out;
+	setElement(*out, row, col, Cvalue);
 }
 matrix matrixAdd(matrix a, matrix b){
-	matrix d_a;
-	copyHostToDevice(&a, &d_a);
-	matrix d_b;
-	copyHostToDevice(&b, &d_b);
-	matrix d_out = cudaBuildMatrix(a.height, b.width, a.stride);
-
-	dim3 threadsPerBlock(16, 16);
-	dim3 numBlocks(b.width/threadsPerBlock.x, a.height/threadsPerBlock.y);
-	matrixAdd<<<numBlocks, threadsPerBlock>>>(d_A, d_b, d_out);
-
 	matrix out;
-	copyDeviceToHost(&d_out, &out);
+	matrix d_A = cudaMalloc(sizeof(struct matrix));
+	matrix d_B = cudaMalloc(sizeof(struct matrix));
+	matrix d_out = cudaMalloc(sizeof(struct matrix));
+
+	cudaBuildMatrix(&d_A, a.height, a.width, a.stride);
+	cudaBuildMatrix(&d_B, b.height, b.width, b.stride);
+	cudaBuildMatrix(&d_out, b.height, b.width, b.stride);
+
+	copyHostToDevice(a, d_A);
+	copyHostToDevice(b, d_B);
+
+	matrixAdd<<<1, 1, 1>>>(d_A, d_B, d_out);
+
+	copyDeviceToHost(d_out, out);
+	cudaFreeMatrix(d_out);
+	cudaFreeMatrix(d_A);
+	cudaFreeMatrix(d_B);
 	return out;
 }
-__global__ matrixAdd(matrix a, matrix b, matrix out){
-	int row = blockIdx.x * blockDim.x + threadIdx.x;
-	int col = blockIdx.y * blockDim.y + threadIdx.y;
-	if(row*a.width + col < a.width*a.height){
-		float val = getElement(a, row, col) + getElement(b, row, col);
-		setElement(out, row, col, val);
+__global__ void matrixAdd(matrix a, matrix b, matrix *out){
+	int row = blockIdx.y*blockDim.y + threadIdx.y;
+	int col = blockIdx.x*blockDim.x + threadIdx.x;
+
+	if(row >= a.height || col >= a.width){
+		return;
 	}
+
+	Cvalue = getElement(A, row, col) + getElement(B, row, col);
+
+	setElement(*out, row, col, Cvalue);
 }
 
 //memory
-matrix cudaBuildMatrix(int height, int width, int stride){
-	matrix d_m;
-	d_m.height = height;
-	d_m.width = width;
-	d_m.stride = stride;
-	cudaMalloc(&d_m.elements, sizeof(float)*height*width);
-	return d_m;
+void cudaBuildMatrix(matrix *d_m, int height, int width, int stride){
+	*d_m.height = cudaMalloc(sizeof(int));
+	*d_m.width = cudaMalloc(sizeof(int));
+	*d_m.stride = cudaMalloc(sizeof(int));
+	*d_m.height = height;
+	*d_m.width = width;
+	*d_m.stride = stride;
+	*d_m.elements = cudaMalloc(sizeof(float)*height*width);
 }
-matrix cudaBuildMatrix(int height, int width, int stride){
-	matrix m;
+matrix buildMatrix(int height, int width, int stride){
+	struct matrix m;
 	m.height = height;
 	m.width = width;
 	m.stride = stride;
-	Malloc(&m.elements, sizeof(float)*height*width);
+	m.elements = malloc(sizeof(float)*height*width);
 	return m;
 }
 void copyDeviceToHost(matrix *device, matrix *host){
-	*host.width = *device.width;
-	*host.height = *device.height;
-	*host.stride = *device.stride;
-	size_t size = (*device.height)*(*device.width)*sizeof(float);
-	malloc(&(*host.elements)), size);
-	cudaMemcpy(host, device, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(*host.width, *device.width, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(*host.height, *device.height, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(*host.stride, *device.stride, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(*host.elements, *device.elements, sizeof(float)*(*host.width)*(*host.height), cudaMemcpyDeviceToHost);
 }
 void copyHostToDevice(matrix *host, matrix *device){
-	*device.width = *host.width;
-	*device.height = *host.height;
-	*device.stride = *host.stride;
-	size_t size = (*device.height)*(*device.width)*sizeof(float);
-	cudaMalloc(&(*device.elements)), size);
-	cudaMemcpy(deice, host, size, cudaMemcpyHostToDevice);
+	cudaMemcpy(*device.width, *host.width, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(*device.height, *host.height, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(*device.stride, *host.stride, sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(*device.elements, *host.elements, sizeof(float)*(*host.width)*(*host.height), cudaMemcpyHostToDevice);
 }
-void cudaFreeMatrix(struct matrix *device){
-  cudaFree(&(*device.height));
-  cudaFree(&(*device.width));
-  cudaFree(&(*device.stride));
-  cudaFree(&(*device.elements));
-  cudaFree(*device);
+void cudaFreeMatrix(matrix *device){
+	cudaFree(&(*device.width));
+	cudaFree(&(*device.height));
+	cudaFree(&(*device.stride));
+	cudaFree(*device.elements);
+	cudaFree(device);
 }
 void freeMatrix(matrix *host){
-  cudaFree(&(*host.height));
-  cudaFree(&(*host.width));
-  cudaFree(&(*host.stride));
-  cudaFree(&(*host.elements));
-  cudaFree(*host);
+	Free(&(*host.width));
+	Free(&(*host.height));
+	Free(&(*host.stride));
+	Free(*host.elements);
+	Free(host);
 }
