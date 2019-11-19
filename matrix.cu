@@ -5,7 +5,7 @@ struct matrix{
 	float *elements;
 };
 
-#include <matrix.h>
+#include "matrix.h"
 
 //util
 __device__ float getElement(matrix m, int row, int col){
@@ -39,7 +39,7 @@ __global__ void matrixMultiply(matrix A, matrix B, matrix *out, int blockSize){
 		matrix Asub = getSubmatrix(A, blockRow, i, blockSize);
 		matrix Bsub = getSubmatrix(B, i, blockCol, blockSize);
 
-		__shared__ float As[blockSize][blockSize];
+		__shared__ float As[blockSize][blockSize];//will need to fix this because shared memory has to be constant(not variable)
 		__shared__ float Bs[blockSize][blockSize];
 
 		As[row][col] = getElement(Asub, row, col);
@@ -53,6 +53,7 @@ __global__ void matrixMultiply(matrix A, matrix B, matrix *out, int blockSize){
 	}
 	setElement(*out, row, col, Cvalue);
 }
+
 matrix matrixAdd(matrix a, matrix b){
 	matrix out;
 	matrix d_A = cudaMalloc(sizeof(struct matrix));
@@ -82,7 +83,7 @@ __global__ void matrixAdd(matrix a, matrix b, matrix *out){
 		return;
 	}
 
-	Cvalue = getElement(A, row, col) + getElement(B, row, col);
+	Cvalue = getElement(a, row, col) + getElement(b, row, col);
 
 	setElement(*out, row, col, Cvalue);
 }
