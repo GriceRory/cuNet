@@ -54,28 +54,8 @@ __global__ void matrixMultiply(matrix A, matrix B, matrix *out, int blockSize){
 	setElement(*out, row, col, Cvalue);
 }
 
-matrix matrixAdd(matrix a, matrix b){
-	matrix out;
-	matrix d_A = cudaMalloc(sizeof(struct matrix));
-	matrix d_B = cudaMalloc(sizeof(struct matrix));
-	matrix d_out = cudaMalloc(sizeof(struct matrix));
 
-	cudaBuildMatrix(&d_A, a.height, a.width, a.stride);
-	cudaBuildMatrix(&d_B, b.height, b.width, b.stride);
-	cudaBuildMatrix(&d_out, b.height, b.width, b.stride);
-
-	copyHostToDevice(a, d_A);
-	copyHostToDevice(b, d_B);
-
-	matrixAdd<<<1, 1, 1>>>(d_A, d_B, d_out);
-
-	copyDeviceToHost(d_out, out);
-	cudaFreeMatrix(d_out);
-	cudaFreeMatrix(d_A);
-	cudaFreeMatrix(d_B);
-	return out;
-}
-__global__ void matrixAdd(matrix a, matrix b, matrix *out){
+__global__ void matrixAdd(matrix a, matrix b){
 	int row = blockIdx.y*blockDim.y + threadIdx.y;
 	int col = blockIdx.x*blockDim.x + threadIdx.x;
 
@@ -85,7 +65,7 @@ __global__ void matrixAdd(matrix a, matrix b, matrix *out){
 
 	Cvalue = getElement(a, row, col) + getElement(b, row, col);
 
-	setElement(*out, row, col, Cvalue);
+	setElement(a, row, col, Cvalue);
 }
 
 //memory
