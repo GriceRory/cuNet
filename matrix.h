@@ -1,13 +1,13 @@
 //util
 __device__ float getElement(matrix m, int row, int col);
 __device__ void setElement(matrix m, int row, int col, float element);
-__device__ matrix getSubMatrix(matrix m, int row, int col, int blockSize);
+__device__ matrix getSubMatrix(matrix m, int row, int col);
 
 //algebra
-__global__ matrixMultiply(matrix a, matrix b, matrix out);
+__global__ void matrixMultiply(matrix a, matrix b, matrix out);
 matrix matrixMultiply(matrix a, matrix b);
 matrix matrixAdd(matrix a, matrix b);
-__global__ matrixAdd(matrix a, matrix b, matrix out);
+__global__ void matrixAdd(matrix a, matrix b, matrix out);
 
 //memory
 void cudaBuildMatrix(matrix *d_m, int height, int width, int stride);
