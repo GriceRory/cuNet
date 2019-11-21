@@ -7,6 +7,8 @@ struct matrix{
 
 #include "matrix.h"
 
+#define BLOCK_SIZE 32
+
 //util
 __device__ float getElement(matrix m, int row, int col){
 	return m.elements[row*m.stride + col];
@@ -14,44 +16,44 @@ __device__ float getElement(matrix m, int row, int col){
 __device__ void setElement(matrix m, int row, int col, float element){
 	m.elements[row*m.stride + col] = element;
 }
-__device__ matrix getSubmatrix(matrix m, int row, int col, int blockSize){
+__device__ matrix getSubmatrix(matrix m, int row, int col){
 	matrix sub;
-	sub.width = blockSize;
-	sub.height = blockSize;
+	sub.width = BLOCK_SIZE;
+	sub.height = BLOCK_SIZE;
 	sub.stride = m.stride;
-	sub.elements = &m.elements[m.stride*blockSize*row + blockSize*col];
+	sub.elements = &m.elements[m.stride*BLOCK_SIZE*row + BLOCK_SIZE*col];
 	return sub;
 }
 
 //algebra
 
-__global__ void matrixMultiply(matrix A, matrix B, matrix *out, int blockSize){
+__global__ void matrixMultiply(matrix A, matrix B, matrix out){
 	int blockRow = blockIdx.x;
-	iny blockCol = blockIdx.y;
+	int blockCol = blockIdx.y;
 
-	matrix outSub = getSubmatrix(c, blockRow, blockCol, blockSize);
+	matrix outSub = getSubmatrix(c, blockRow, blockCol, BLOCK_SIZE);
 	float Cvalue = 0.0;
 
 	int row = threadIdx.y;
 	int col = threadIdx.x;
 
-	for(int i = 0; i < (a.width / blockSize); i++){
-		matrix Asub = getSubmatrix(A, blockRow, i, blockSize);
-		matrix Bsub = getSubmatrix(B, i, blockCol, blockSize);
+	for(int i = 0; i < (a.width / BLOCK_SIZE); i++){
+		matrix Asub = getSubmatrix(A, blockRow, i);
+		matrix Bsub = getSubmatrix(B, i, blockCol);
 
-		__shared__ float As[blockSize][blockSize];//will need to fix this because shared memory has to be constant(not variable)
-		__shared__ float Bs[blockSize][blockSize];
+		__shared__ float As[BLOCK_SIZE][BLOCK_SIZE];
+		__shared__ float Bs[BLOCK_SIZE][BLOCK_SIZE];
 
 		As[row][col] = getElement(Asub, row, col);
 		Bs[row][col] = getElement(Bsub, row, col);
 
 		__syncthreads();
-		for(int j = 0; j < blockSize; j++){
+		for(int j = 0; j < BLOCK_SIZE; j++){
 			Cvalue += As[row][j]*Bs[j][col];
 		}
 		__syncthreads();
 	}
-	setElement(*out, row, col, Cvalue);
+	setElement(out, row, col, Cvalue);
 }
 
 
