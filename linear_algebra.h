@@ -13,7 +13,7 @@ struct vector{
 };
 
 #define BLOCK_SIZE 512
-#define return_cuda_status if(cudaGetLastError() != cudaSuccess){return cudaPeekAtLastError();}
+#define return_cuda_status if(cudaPeekAtLastError() != cudaSuccess){return cudaGetLastError();}
 
 //util
 __device__ float getElement(matrix m, int row, int col);
