@@ -1,4 +1,16 @@
 
+struct matrix{
+	int width;
+	int height;
+	float *elements;
+};
+
+struct vector{
+	int length;
+	float *elements;
+};
+
+
 struct network{
 	int number_of_layers;
 	int *nodes_in_layer;
@@ -28,33 +40,46 @@ int train(network *n, database *sample){
 
 int apply_deltas(network *n, network dn){
 	for(int layer = 0; layer < n->number_of_layers-2; layer++){
-		apply_bias_delta<<<>>>(*n, dn, layer);
-		apply_weight_delta<<<>>>(*n, dn, layer);
+
+		addMatrix<<<threadsPerBlock, Blocks>>>(n->weights[layer] , dn.weights[layer]);
+
+		addVector<<<threads, block>>>(n->biases[layer], dn.biases[layer]);
 	}
-	apply_bias_delta<<<>>>(*n, dn, n->number_of_layers-1);
+	addVector<<<threads, block>>>(n->biases[n->numberOfLayers - 1], dn.biases[n->numberOfLayers - 1]);
 }
 
 //COMPLETE
-int calculate_next_layer_weight_changes(network dn, int layer, float *node_outputs, float *node_derivatives){
+__global__ void calculate_next_layer_weight_changes(network dn, int layer, float *node_outputs, float *node_derivatives){
 	int i = blockDim.x* blockIdx.x + threadIdx.x;
 	int j = blockDim.y* blockIdx.y + threadIdx.y;
 	int nodes_in_layer = dn.nodes_in_layer[layer];
-	float weight_change = node_derivatives[j + nodes_in_layer] * node_outputs[i] * dn.signal_derivative(node_outputs[j + nodes_in_layer]);
-	setElement(*dn.weights[layer], i, j, weight_change);
+	float dE_by_dNodeOutputNextLayer = node_derivatives[j + nodes_in_layer];
+	float dNodeOutputNextLayer_by_dNoteInputNextLayer = (dn.signal_derivative)(node_outputs[j + nodes_in_layer]);
+	float dNodeInputNextLayer_by_dWeightConnecting = node_outputs[i];
+	//the chain rule allows us to multiply these together.
+	float weight_change = dE_by_dNodeOutputNextLayer * dNodeOutputNextLayer_by_dNoteInputNextLayer * dNodeInputNextLayer_by_dWeightConnecting;
+	setWeight(dn, layer, i, j, weight_change);
 }
 
-int calculate_next_layer_bias_changes(network dn, int layer, float *node_outputs, float *node_derivatives){
+__global__ void calculate_next_layer_bias_changes(network n, int layer, float *node_outputs, float *node_derivatives){
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
-	float biasDelta = n.signal_derivative(node_outputs[idx + n.nodes_in_layer[layer]])*
-			node_derivatives[idx + n.nodes_in_layer[layer]];
+	float dE_by_bNodeOutputNextLayer = node_derivatives[idx + n.nodes_in_layer[layer]];
+	float dNodeOutputNextLayer_by_dNodeInputNextLayer = (n.signal_derivative)(node_outputs[idx + n.nodes_in_layer[layer]]);
+	//dNodeInputNextLayer/dBias = 1, and using the chain rule here;
+	float biasDelta = dE_by_bNodeOutputNextLayer * dNodeOutputNextLayer_by_dNodeInputNextLayer;
 	setElement(dn.biases[layer], idx, biasDelta);
 }
 
-int calculate_next_layer_node_derivatves(network n, int layer, float *node_outputs, float *node_derivatives){
+__global__ void calculate_next_layer_node_derivatves(network n, int layer, float *node_outputs, float *node_derivatives){
 	__shared__ float node_derivative_components[BLOCK_SIZE];
-	node_derivative_components[threadIdx.x] = getElement(*(n.weights[layer]), threadIdx.x, blockIdx.x*blockDim.x)*
-			n.signal_derivative(node_outputs[threadIdx.x + n.nodes_in_layer[layer]])*
-			node_derivatives[threadIdx.x + n.nodes_in_layer[layer]];
+	float dE_by_dNodeOutputNextLayer = node_derivatives[threadIdx.x + n.nodes_in_layer[layer]];
+	float dNodeOutputNextLayer_by_dNodeInputNextLayer = (n.signal_derivative)(node_outputs[threadIdx.x + n.nodes_in_layer[layer]]);
+	float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = getElement(*(n.weights[layer]), threadIdx.x, blockIdx.x*blockDim.x);
+	//the chain rule lets us calculate each component
+	node_derivative_components[threadIdx.x] = dE_by_dNodeOutputNextLayer *
+			dNodeOutputNextLayer_by_dNodeInputNextLayer *
+			dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
+	//and then calculate the derivative by computing their sum
 	for(int i = 2; i < BLOCK_SIZE / 2; i *= 2){
 		__syncthreads();
 		if(threadIdx.x < BLOCK_SIZE / i){
@@ -70,10 +95,14 @@ int calculate_node_derivatives(network n, float *node_outputs, float *node_deriv
 	for(int layer = 0; layer < n.number_of_layers - 2; layer++){
 		node_location += n.nodes_in_layer[layer];
 	}
+
+	//calculation for the node derivatives in the last layer is simple.
 	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is probably faster on CPU than transferring to a GPU
 		node_derivative[node_location + node] = 2*(node_outputs[node_location + node] - expected_output[node]);
 	}
-	for(int layer = n.number_of_layers - 1; layer >= 0; layer--){
+
+	//calculates each layer then checks for cuda errors.
+	for(int layer = n.number_of_layers - 2; layer >= 0; layer--){
 		calculate_next_layer_node_derivatves<<<n.nodes_in_layer[layer+1], n.nodes_in_layer[layer]>>>(n, &node_outputs[node_location], &node_outputs[node_location]);
 
 		if(cudaPeekAtLastError() != cudaSuccess){return cudaGetLastError();}

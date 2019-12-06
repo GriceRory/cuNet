@@ -24,6 +24,8 @@ __device__ void setElement(vector v, int element, float value);
 //algebra
 __global__ void matrixMultiply(vector input, matrix m, vector out);
 __global__ void vectorAdd(vector a, vector b, vector out);
+__global__ void matrixAdd(matrix target, matrix addition);
+__global__ void vectorAdd(vector target, vector addition);
 
 //memory
 int cudaBuildMatrix(matrix *d_m, int height, int width);
@@ -50,6 +52,17 @@ __device__ void setElement(vector v, int element, float value){
 	v.elements[element] = value;
 }
 
+__global__ void matrixAdd(matrix target, matrix addition){
+	int x = threadIdx.x + blockIdx.x*blockDim.x;
+	int y = threadIdx.x + blockIdx.x*blockDim.x;
+	float value = getElement(target, x, y);
+	setElement(target, x, y, value + getElement(addition, x, y));
+}
+__global__ void vectorAdd(vector target, vector addition){
+	int idx = threadIdx.x + blockIdx.x*blockDim.x;
+	float value = getElement(target, idx);
+	setElement(target, idx, value + getElement(addition, idx));
+}
 
 __global__ void matrixMultiply(vector input, matrix M, vector out){
 	__shared__ float temp[BLOCK_SIZE + 1];

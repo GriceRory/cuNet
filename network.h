@@ -21,11 +21,15 @@ struct network{
 void buildNetwork(network *n, int layers, int *nodes_in_layer);
 void runNetwork(network n, vector input, vector *output);
 void calculateLayer(matrix weights, vector biases, vector inputs, vector *output);
+__device__ float getWeight(network n, int layer, int node_from, int node_to);
+__device__ void setWeight(network n, int layer, int node_from, int node_to, float value);
+__device__ float getBias(network n, int layer, int node);
+__device__ void setBias(network n, int layer, int node, float value);
 
 //signal functions and derivative calculators
 __device__ float sigmoid(float input);
 __device__ float sigmoid_derivative(float output);
-
+__global__ void apply_signal_function(vector v, void *signal_function);
 
 
 void buildNetwork(network *n, int layers, int *nodes_in_layer, void *function, void *derivative){
@@ -78,6 +82,19 @@ int calculateLayer(matrix weights, vector biases, vector inputs, vector output, 
 	apply_signal_function<<<threads_per_block, number_of_blocks>>>(output, signal);
 	return_cuda_status
 	return cudaSuccess;
+}
+
+__device__ float getWeight(network n, int layer, int node_from, int node_to){
+	return getElement(*(n.weights[layer]), node_from, node_to);
+}
+__device__ void setWeight(network n, int layer, int node_from, int node_to, float value){
+	return setElement(*(n.weights[layer]), node_from, node_to, value);
+}
+__device__ float getBias(network n, int layer, int node){
+	return getElement(*(n.biases[layer]), node);
+}
+__device__ void setBias(network n, int layer, int node, float value){
+	return setElement(*(n.biases[layer]), node, value);
 }
 
 //signal functions and derivative calculators
