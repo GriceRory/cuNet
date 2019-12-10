@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "backpropogation.h"
 
 struct network{
 	int number_of_layers;
@@ -15,7 +16,6 @@ struct network{
 	void *signal_derivative;
 };
 
-#include "backpropogation.h"
 
 //UTIL
 void buildNetwork(network *n, int layers, int *nodes_in_layer);
@@ -101,7 +101,7 @@ __device__ void setBias(network n, int layer, int node, float value){
 __device__ float sigmoid(float input){return 1/(1+exp(-input));};
 __device__ float sigmoid_derivative(float output){return output*(1-output);}
 __global__ void apply_signal_function(vector v, void *signal_function){
-	int idx = threadIdx.x + blockIdx.x*bloxkDim.x;
+	int idx = threadIdx.x + blockIdx.x*blockDim.x;
 	if(idx < v.length){
 		float value = (*signal_function)(getElement(m, idx));
 		setElement(v, idx, value);
