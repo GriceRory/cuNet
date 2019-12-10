@@ -1,7 +1,7 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "matrix.cu"
+#include "linear_algebra.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,64 +12,33 @@ struct network{
 	vector **biases;
 	matrix **weights;
 	void *signal_function;
+	void *signal_derivative;
 };
 
-//UTIL
-void train(network *n, database db);
-__global__ void backpropogate(network *n, float *input, float *expected);
-float * calculateNodes(network *n, float *input);
-void buildNetwork(network *n, int layers, int *nodes_in_layer);
+#include "backpropogation.h"
 
+//UTIL
+void buildNetwork(network *n, int layers, int *nodes_in_layer);
 void runNetwork(network n, vector input, vector *output);
 void calculateLayer(matrix weights, vector biases, vector inputs, vector *output);
+__device__ float getWeight(network n, int layer, int node_from, int node_to);
+__device__ void setWeight(network n, int layer, int node_from, int node_to, float value);
+__device__ float getBias(network n, int layer, int node);
+__device__ void setBias(network n, int layer, int node, float value);
 
 //signal functions and derivative calculators
 __device__ float sigmoid(float input);
-__device__ float sigmoidDerivative(float output);
+__device__ float sigmoid_derivative(float output);
+__global__ void apply_signal_function(vector v, void *signal_function);
 
 
-
-//TO-DO
-void train(network *n, database *sample){
-
-}
-
-
-float * calculateNodes(network *n, float *input){
-	int number_of_nodes = 0;
-	for(int layer = 0; layer < n->number_of_layers; layer++){
-		number_of_nodes += n->nodes_in_layer[layer];
+void buildNetwork(network *n, int layers, int *nodes_in_layer, void *function, void *derivative){
+	if(function == NULL){
+		n->signal_function = &sigmoid;
+		n->signal_derivative = &sigmoid_derivative;
 	}
-	float *node_outputs;
-	cudaMalloc(&node_output, number_of_nodes*sizeof(float));
-
-	int layer=0;
-	for(float node = 0; node < number_of_nodes; node += n->nodes_in_layer[layer++]){
-		vector current_node_values;
-		current_node_values.length = nodes_in_layer[layer];
-		current_node_values.elements = &node_outputs[node];
-
-		vector next_node_values;
-		next_node_values.length = nodes_in_layer[layer+1];
-		next_node_values.elements = &node_outputs[node + nodes_in_layer[layer+1]];
-
-		for(int current_layer = 0; current_layer < n.number_of_layers - 1; current_layer++){
-			calculateLayer(n.weights[current_layer], n.biases[current_layer], current_node_values, next_node_values, n.signal_function);
-		}
-	}
-	return node_outputs;
-}
-
-void backpropogate(network *n, float *input, float *expected){
-	float node_outputs = calculateNodes(n, input);
-
-}
-
-
-//COMPLETE
-
-void buildNetwork(network *n, int layers, int *nodes_in_layer, void *function){
 	n->signal_function = function;
+	n->signal_derivative = derivative;
 	n->number_of_layers = layers;
 	n->nodes_in_layer = malloc(sizeof(vector*)*layers);
 	n->biases = malloc(layers*sizeof(vector*));
@@ -85,13 +54,13 @@ void buildNetwork(network *n, int layers, int *nodes_in_layer, void *function){
 
 //given a network, input on device memory and a pointer to an output on host memory,
 //calculates the output of the network on the given input.
-void runNetwork(network n, matrix input, matrix *output){
-	matrix current_node_values;
-	cudaBuildMatrix(current_node_values, 1, n.nodes_in_layer[0]);
-	cudaCopyMatrixHostToDevice(current_node_values, input);
+void runNetwork(network n, vector input, vector *output){
+	vector current_node_values;
+	cudaBuildVector(current_node_values, 1, n.nodes_in_layer[0]);
+	cudaCopyVectorHostToDevice(current_node_values, input);
 
-	matrix next_node_values;
-	cudaBuildMatrix(next_node_values, 1, n.nodes_in_layer[1]);
+	vector next_node_values;
+	cudaBuildVector(next_node_values, 1, n.nodes_in_layer[1]);
 
 	for(int current_layer = 0; current_layer < n.number_of_layers - 1; current_layer++){
 		calculateLayer(n.weights[current_layer], n.biases[current_layer], current_node_values, next_node_values, n.signal_function);
@@ -102,17 +71,35 @@ void runNetwork(network n, matrix input, matrix *output){
 
 //given the weights and biases on one layer of a network, as well as a signal function,
 //calculates the next layer
-void calculateLayer(matrix weights, vector biases, vector inputs, vector output, void *signal){
-	int threads_per_block;
-	int number_of_blocks;
+int calculateLayer(matrix weights, vector biases, vector inputs, vector output, void *signal){
+	int threads_per_block = BLOCK_SIZE;
+	int number_of_blocks = inputs.length/BLOCK_SIZE + 1;
 	matrixMultiply<<<threads_per_block, number_of_blocks>>>(inputs, weights, output);
+	return_cuda_status
+	number_of_blocks = output.length/BLOCK_SIZE + 1;
 	matrixAdd<<<threads_per_block, number_of_blocks>>>(output, biases);
+	return_cuda_status
 	apply_signal_function<<<threads_per_block, number_of_blocks>>>(output, signal);
+	return_cuda_status
+	return cudaSuccess;
+}
+
+__device__ float getWeight(network n, int layer, int node_from, int node_to){
+	return getElement(*(n.weights[layer]), node_from, node_to);
+}
+__device__ void setWeight(network n, int layer, int node_from, int node_to, float value){
+	return setElement(*(n.weights[layer]), node_from, node_to, value);
+}
+__device__ float getBias(network n, int layer, int node){
+	return getElement(*(n.biases[layer]), node);
+}
+__device__ void setBias(network n, int layer, int node, float value){
+	return setElement(*(n.biases[layer]), node, value);
 }
 
 //signal functions and derivative calculators
 __device__ float sigmoid(float input){return 1/(1+exp(-input));};
-__device__ float sigmoidDerivative(float output){return output*(1-output);}
+__device__ float sigmoid_derivative(float output){return output*(1-output);}
 __global__ void apply_signal_function(vector v, void *signal_function){
 	int idx = threadIdx.x + blockIdx.x*bloxkDim.x;
 	if(idx < v.length){
