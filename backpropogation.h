@@ -1,25 +1,4 @@
 
-struct matrix{
-	int width;
-	int height;
-	float *elements;
-};
-
-struct vector{
-	int length;
-	float *elements;
-};
-
-
-struct network{
-	int number_of_layers;
-	int *nodes_in_layer;
-	vector **biases;
-	matrix **weights;
-	void *signal_function;
-	void *signal_derivative;
-};
-
 int train(network *n, database db);//returns current cudaStatus
 int backpropogate(network *n, float *input, float *expected);//returns current cudaStatus
 int calculateNodes(network *n, float *input, float *node_outputs);
@@ -35,20 +14,26 @@ int calculate_node_derivatives(network n, float * node_outputs, float *node_deri
 
 //TO-DO
 int train(network *n, database *sample){
-
+	for(int i = 0; i < sample->size; i++){
+		backpropogate(n, sample->inputs[i], sample->outputs[i]);
+	}
 }
 
 int apply_deltas(network *n, network dn){
 	for(int layer = 0; layer < n->number_of_layers-2; layer++){
+		dim3 threadsPerBlock(BLOCK_SIZE, BLOCK_SIZE);
+		dim3 blocks(n->weights[layer]->height / BLOCK_SIZE + 1, n->weights[layer]->width / BLOCK_SIZE + 1);
+		addMatrix<<<threadsPerBlock, blocks>>>(n->weights[layer] , dn.weights[layer]);
 
-		addMatrix<<<threadsPerBlock, Blocks>>>(n->weights[layer] , dn.weights[layer]);
-
+		int threads = BLOCK_SIZE;
+		int block = n->biases[layer]->length/BLOCK_SIZE + 1;
 		addVector<<<threads, block>>>(n->biases[layer], dn.biases[layer]);
 	}
-	addVector<<<threads, block>>>(n->biases[n->numberOfLayers - 1], dn.biases[n->numberOfLayers - 1]);
+	int threads = BLOCK_SIZE;
+	int block = n->biases[n->number_of_layers]->length/BLOCK_SIZE + 1;
+	addVector<<<threads, block>>>(n->biases[n->number_of_layers - 1], dn.biases[n->number_of_layers - 1]);
 }
 
-//COMPLETE
 __global__ void calculate_next_layer_weight_changes(network dn, int layer, float *node_outputs, float *node_derivatives){
 	int i = blockDim.x* blockIdx.x + threadIdx.x;
 	int j = blockDim.y* blockIdx.y + threadIdx.y;

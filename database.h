@@ -5,9 +5,6 @@ struct database{
 };
 
 
-//util
-
-
 //memory
 void buildDatabase(database *db, file f);
 void saveDatabase(database *db, file f);
