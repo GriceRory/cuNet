@@ -1,18 +1,11 @@
 #include <stdio.h>
 #include<stdlib.h>
 
-struct vector{
-	int length;
-	float *elements;
-};
-
 struct database{
   vector **inputs;
   vector **outputs;
   int size;
 };
-
-
 
 
 //memory management

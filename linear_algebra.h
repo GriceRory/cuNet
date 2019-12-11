@@ -1,5 +1,9 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+srand(time(NULL));
 
 struct matrix{
 	int width;
@@ -12,7 +16,7 @@ struct vector{
 	float *elements;
 };
 
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE 32
 #define return_cuda_status if(cudaPeekAtLastError() != cudaSuccess){return cudaGetLastError();}
 
 //util
@@ -20,6 +24,10 @@ __device__ float getElement(matrix m, int row, int col);
 __device__ void setElement(matrix m, int row, int col, float element);
 __device__ float getElement(vector v, int element);
 __device__ void setElement(vector v, int element, float value);
+float getElement(matrix m, int row, int col);
+void setElement(matrix m, int row, int col, float element);
+float getElement(vector v, int element);
+void setElement(vector v, int element, float value);
 
 //algebra
 __global__ void matrixMultiply(vector input, matrix m, vector out);
@@ -27,17 +35,22 @@ __global__ void vectorAdd(vector a, vector b, vector out);
 __global__ void matrixAdd(matrix target, matrix addition);
 __global__ void vectorAdd(vector target, vector addition);
 
-//memory
+//matrix memory
 int cudaBuildMatrix(matrix *d_m, int height, int width);
-matrix buildMatrix(int height, int width);
+matrix* buildMatrix(int height, int width);
 int copyDeviceToHost(matrix *device, matrix *host);
 int copyHostToDevice(matrix *host, matrix *device);
 int cudaFreeMatrix(matrix *device);
 void freeMatrix(matrix *host);
+void randomizeMatrix(matrix *m, float max);
+//vector memory
 vector buildVector(int length);
 int cudaBuildVector(vector *v, int length);
 int cudaFreeVector(vector *device);
 void freeVector(vector *host);
+void randomizeVector(vector v, float max);
+int copyHostToDevice(vector *host, vector *device);
+int copyDeviceToHost(vector *device, vector *host);
 
 __device__ float getElement(matrix m, int row, int col){
 	return m.elements[row*m.width + col];
@@ -49,6 +62,19 @@ __device__ float getElement(vector v, int element){
 	return v.elements[element];
 }
 __device__ void setElement(vector v, int element, float value){
+	v.elements[element] = value;
+}
+
+float getElement(matrix m, int row, int col){
+	return m.elements[row*m.width + col];
+}
+void setElement(matrix m, int row, int col, float element){
+	m.elements[row*m.width + col] = element;
+}
+float getElement(vector v, int element){
+	return v.elements[element];
+}
+void setElement(vector v, int element, float value){
 	v.elements[element] = value;
 }
 
@@ -107,12 +133,12 @@ int cudaBuildMatrix(matrix *d_m, int height, int width){
 	cudaMalloc(d_m->elements, sizeof(float)*height*width);
 	return cudaPeekAtLastError();
 }
-matrix buildMatrix(int height, int width){
+matrix* buildMatrix(int height, int width){
 	matrix m;
 	m.height = height;
 	m.width = width;
 	malloc(m.elements, sizeof(float)*height*width);
-	return m;
+	return &m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
 	cudaMemcpy(host->width, device->width, sizeof(int), cudaMemcpyDeviceToHost);
@@ -194,4 +220,17 @@ int copyHostToDevice(vector *host, vector *device){
 	return_cuda_status
 	cudaMemcpy(*device.elements, *host.elements, sizeof(float)*host->length, cudaMemcpyHostToDevice);
 	return cudaPeekAtLastError();
+}
+
+void randomizeMatrix(matrix *m, float max){
+	for(int i = 0; i < m.height, i++){
+		for(int j = 0; j < width, j++){
+			setElement(m, j, i, max*((float)rand()/RAND_MAX));
+		}
+	}
+}
+void randomizeVector(vector v, float max){
+	for(int element = 0; element < v.length; element++){
+		setElement(v, element, max*((float)rand()/RAND_MAX));
+	}
 }
