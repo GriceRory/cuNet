@@ -36,8 +36,8 @@ int cudaFreeMatrix(matrix *device);
 void freeMatrix(matrix *host);
 vector buildVector(int length);
 int cudaBuildVector(vector *v, int length);
-int cudaFreeVector(matrix *device);
-void freeVector(matrix *host);
+int cudaFreeVector(vector *device);
+void freeVector(vector *host);
 
 __device__ float getElement(matrix m, int row, int col){
 	return m.elements[row*m.width + col];
@@ -96,22 +96,22 @@ __global__ void vectorAdd(vector a, vector b, vector out){
 }
 
 int cudaBuildMatrix(matrix *d_m, int height, int width){
-	d_m->height = cudaMalloc(sizeof(int));
+	cudaMalloc(&d_m->height, sizeof(int));
 	return_cuda_status
-	d_m->width = cudaMalloc(sizeof(int));
+	cudaMalloc(d_m->width, sizeof(int));
 	return_cuda_status
 	cudaMemcpyHostToDevice(&(d_m->height), &height, sizeof(int), cudaMemcpyDeviceToHost);
 	return_cuda_status
 	cudaMemcpyHostToDevice(&(d_m->width), &width, sizeof(int), cudaMemcpyDeviceToHost);
 	return_cuda_status
-	d_m->elements = cudaMalloc(sizeof(float)*height*width);
+	cudaMalloc(d_m->elements, sizeof(float)*height*width);
 	return cudaPeekAtLastError();
 }
 matrix buildMatrix(int height, int width){
 	matrix m;
 	m.height = height;
 	m.width = width;
-	m.elements = malloc(sizeof(float)*height*width);
+	malloc(m.elements, sizeof(float)*height*width);
 	return m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
@@ -154,14 +154,15 @@ vector buildVector(int length){
 	return v;
 }
 int cudaBuildVector(vector *v, int length){
-	v->length= cudaMalloc(sizeof(int));
+	cudaMalloc(v->length, sizeof(int));
 	return_cuda_status
-	cudaMemcpyHostToDevice(&(v->length), &length, sizeof(int), cudaMemcpyDeviceToHost);
+	cudaMemcpy(&(v->length), &length, sizeof(int), cudaMemcpyDeviceToHost);
 	return_cuda_status
-	v->elements = cudaMalloc(sizeof(float)*length);
+	cudaMalloc(v->elements, sizeof(float)*length);
 	return cudaPeekAtLastError();
 }
-int cudaFreeVector(matrix *device){
+int cudaFreeVector(vector *device){
+	if(device == NULL){return cudaSuccess;}
 	cudaFree(&(device->length));
 	return_cuda_status
 	cudaFree(device->elements);
@@ -169,12 +170,20 @@ int cudaFreeVector(matrix *device){
 	cudaFree(device);
 	return cudaPeekAtLastError();
 }
-int freeVector(vector *host){
+void freeVector(vector *host){
+	if(host == NULL){return;}
 	free(&(host->length));
 	free(host->elements);
 	free(*host);
+	return;
 }
 int copyDeviceToHost(vector *device, vector *host){
+	if(host == null){
+		host = malloc(sizeof(vector));
+	}else{
+		freeVector(host);
+		host = malloc(sizeof(vector));
+	}
 	cudaMemcpy(host->length, device->length, sizeof(int), cudaMemcpyDeviceToHost);
 	return_cuda_status
 	cudaMemcpy(*host.elements, *device.elements, sizeof(float)*host->length, cudaMemcpyDeviceToHost);
