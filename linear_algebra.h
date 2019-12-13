@@ -3,41 +3,37 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-srand(time(NULL));
-
-struct matrix{
+typedef struct{
 	int width;
 	int height;
 	float *elements;
-};
+}matrix;
 
-struct vector{
+typedef struct{
 	int length;
 	float *elements;
-};
+}vector;
 
-#define BLOCK_SIZE 32
+#define BLOCK_SIZE 64
 #define return_cuda_status if(cudaPeekAtLastError() != cudaSuccess){return cudaGetLastError();}
 
 //util
-__device__ float getElement(matrix m, int row, int col);
-__device__ void setElement(matrix m, int row, int col, float element);
-__device__ float getElement(vector v, int element);
-__device__ void setElement(vector v, int element, float value);
-float getElement(matrix m, int row, int col);
-void setElement(matrix m, int row, int col, float element);
-float getElement(vector v, int element);
-void setElement(vector v, int element, float value);
+void generateIdentity(matrix m);
+void printMatrix(matrix m);
+void printVector(vector v);
+__host__ __device__ float getElement(matrix m, int row, int col);
+__host__ __device__ void setElement(matrix m, int row, int col, float element);
+__host__ __device__ float getElement(vector v, int element);
+__host__ __device__ void setElement(vector v, int element, float value);
 
 //algebra
 __global__ void matrixMultiply(vector input, matrix m, vector out);
-__global__ void vectorAdd(vector a, vector b, vector out);
 __global__ void matrixAdd(matrix target, matrix addition);
 __global__ void vectorAdd(vector target, vector addition);
 
 //matrix memory
 int cudaBuildMatrix(matrix *d_m, int height, int width);
-matrix* buildMatrix(int height, int width);
+matrix* buildMatrix(matrix *m, int height, int width);
 int copyDeviceToHost(matrix *device, matrix *host);
 int copyHostToDevice(matrix *host, matrix *device);
 int cudaFreeMatrix(matrix *device);
@@ -52,31 +48,19 @@ void randomizeVector(vector v, float max);
 int copyHostToDevice(vector *host, vector *device);
 int copyDeviceToHost(vector *device, vector *host);
 
-__device__ float getElement(matrix m, int row, int col){
+__host__ __device__ float getElement(matrix m, int row, int col){
 	return m.elements[row*m.width + col];
 }
-__device__ void setElement(matrix m, int row, int col, float element){
+__host__ __device__ void setElement(matrix m, int row, int col, float element){
 	m.elements[row*m.width + col] = element;
 }
-__device__ float getElement(vector v, int element){
+__host__ __device__ float getElement(vector v, int element){
 	return v.elements[element];
 }
-__device__ void setElement(vector v, int element, float value){
+__host__ __device__ void setElement(vector v, int element, float value){
 	v.elements[element] = value;
 }
 
-float getElement(matrix m, int row, int col){
-	return m.elements[row*m.width + col];
-}
-void setElement(matrix m, int row, int col, float element){
-	m.elements[row*m.width + col] = element;
-}
-float getElement(vector v, int element){
-	return v.elements[element];
-}
-void setElement(vector v, int element, float value){
-	v.elements[element] = value;
-}
 
 __global__ void matrixAdd(matrix target, matrix addition){
 	int x = threadIdx.x + blockIdx.x*blockDim.x;
@@ -86,75 +70,56 @@ __global__ void matrixAdd(matrix target, matrix addition){
 }
 __global__ void vectorAdd(vector target, vector addition){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
+	if(idx < target.length){return;}
 	float value = getElement(target, idx);
 	setElement(target, idx, value + getElement(addition, idx));
 }
 
 __global__ void matrixMultiply(vector input, matrix M, vector out){
-	__shared__ float temp[BLOCK_SIZE + 1];
-	temp[BLOCK_SIZE] = 0
-	if(threadIdx.x > input.length || blockDim.x > M.width){return;}
-
+	__shared__ float temp[BLOCK_SIZE];
+	if(threadIdx.x > input.length){return;}
 	for(int block = 0; block < input.length/BLOCK_SIZE + 1; block++){
 		temp[threadIdx.x] = getElement(input, threadIdx.x) * getElement(M, blockIdx.x, threadIdx.x);
 
-		for(int i = 2; i < BLOCK_SIZE / 2; i *= 2){
+		for(int i = 2; i < BLOCK_SIZE; i *= 2){
 			__syncthreads();
 			if(threadIdx.x < BLOCK_SIZE / i){
-				temp[threadIdx.x] += temp[2*threadIdx.x];
+				temp[threadIdx.x] += temp[threadIdx.x + BLOCK_SIZE/i];
 			}
 			__syncthreads();
 		}
-		temp[BLOCK_SIZE] += temp[0];
 	}
-	setElement(out, blockDim.x, temp[BLOCK_SIZE]);
-}
-__global__ void vectorAdd(vector a, vector b, vector out){
-	int idx = blockIdx.x*blockDim.x + threadIdx.x;
-
-	if(idx > a.length){
-		return;
-	}
-
-	float Cvalue = getElement(a, idx) + getElement(b, idx);
-
-	setElement(a, idx, Cvalue);
+	setElement(out, blockDim.x*blockIdx.x, temp[0]);
+	setElement(out, blockDim.x*blockIdx.x, 1.0);
 }
 
 int cudaBuildMatrix(matrix *d_m, int height, int width){
-	cudaMalloc(&d_m->height, sizeof(int));
-	return_cuda_status
-	cudaMalloc(d_m->width, sizeof(int));
-	return_cuda_status
-	cudaMemcpyHostToDevice(&(d_m->height), &height, sizeof(int), cudaMemcpyDeviceToHost);
-	return_cuda_status
-	cudaMemcpyHostToDevice(&(d_m->width), &width, sizeof(int), cudaMemcpyDeviceToHost);
-	return_cuda_status
-	cudaMalloc(d_m->elements, sizeof(float)*height*width);
-	return cudaPeekAtLastError();
+	d_m->height = height;
+	d_m->width = width;
+	cudaMalloc(&(d_m->elements), sizeof(float)*height*width);
+	return cudaGetLastError();
 }
-matrix* buildMatrix(int height, int width){
-	matrix m;
-	m.height = height;
-	m.width = width;
-	malloc(m.elements, sizeof(float)*height*width);
-	return &m;
+matrix* buildMatrix(matrix *m, int height, int width){
+	m->height = height;
+	m->width = width;
+	m->elements = (float*)malloc(sizeof(float)*height*width);
+	return m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
-	cudaMemcpy(host->width, device->width, sizeof(int), cudaMemcpyDeviceToHost);
+	host->width = device->width;
 	return_cuda_status
-	cudaMemcpy(host->height, device->height, sizeof(int), cudaMemcpyDeviceToHost);
+	host->height = device->height;
 	return_cuda_status
 	cudaMemcpy(host->elements, device->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyDeviceToHost);
-	return cudaPeekAtLastError();
+	return cudaGetLastError();
 }
 int copyHostToDevice(matrix *host, matrix *device){
-	cudaMemcpy(device->width, host->width, sizeof(int), cudaMemcpyHostToDevice);
+	device->width = host->width;
 	return_cuda_status
-	cudaMemcpy(device->height, host->height, sizeof(int), cudaMemcpyHostToDevice);
+	device->height = host->height;
 	return_cuda_status
 	cudaMemcpy(device->elements, host->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyHostToDevice);
-	return cudaPeekAtLastError();
+	return cudaGetLastError();
 }
 int cudaFreeMatrix(matrix *device){
 	cudaFree(&(device->width));
@@ -164,11 +129,9 @@ int cudaFreeMatrix(matrix *device){
 	cudaFree(device->elements);
 	return_cuda_status
 	cudaFree(device);
-	return cudaPeekAtLastError();
+	return cudaGetLastError();
 }
 void freeMatrix(matrix *host){
-	free(&(host->width));
-	free(&(host->height));
 	free(host->elements);
 	free(host);
 }
@@ -176,16 +139,13 @@ void freeMatrix(matrix *host){
 vector buildVector(int length){
 	vector v;
 	v.length = length;
-	v.elements = malloc(sizeof(float)*length);
+	v.elements = (float*)(malloc(sizeof(float)*length));
 	return v;
 }
 int cudaBuildVector(vector *v, int length){
-	cudaMalloc(v->length, sizeof(int));
-	return_cuda_status
-	cudaMemcpy(&(v->length), &length, sizeof(int), cudaMemcpyDeviceToHost);
-	return_cuda_status
-	cudaMalloc(v->elements, sizeof(float)*length);
-	return cudaPeekAtLastError();
+	v->length = length;
+	cudaMalloc(&(v->elements), sizeof(float)*length);
+	return cudaGetLastError();
 }
 int cudaFreeVector(vector *device){
 	if(device == NULL){return cudaSuccess;}
@@ -194,43 +154,61 @@ int cudaFreeVector(vector *device){
 	cudaFree(device->elements);
 	return_cuda_status
 	cudaFree(device);
-	return cudaPeekAtLastError();
+	return cudaGetLastError();
 }
 void freeVector(vector *host){
 	if(host == NULL){return;}
 	free(&(host->length));
 	free(host->elements);
-	free(*host);
+	free(host);
 	return;
 }
 int copyDeviceToHost(vector *device, vector *host){
-	if(host == null){
-		host = malloc(sizeof(vector));
-	}else{
-		freeVector(host);
-		host = malloc(sizeof(vector));
-	}
-	cudaMemcpy(host->length, device->length, sizeof(int), cudaMemcpyDeviceToHost);
-	return_cuda_status
-	cudaMemcpy(*host.elements, *device.elements, sizeof(float)*host->length, cudaMemcpyDeviceToHost);
-	return cudaPeekAtLastError();
+	host->length = device->length;
+	cudaMemcpy(host->elements, device->elements, sizeof(float)*host->length, cudaMemcpyDeviceToHost);
+	return cudaGetLastError();
 }
 int copyHostToDevice(vector *host, vector *device){
-	cudaMemcpy(device->length, host->length, sizeof(int), cudaMemcpyHostToDevice);
-	return_cuda_status
-	cudaMemcpy(*device.elements, *host.elements, sizeof(float)*host->length, cudaMemcpyHostToDevice);
+	device->length = host->length;
+	cudaMemcpy(device->elements, host->elements, sizeof(float)*host->length, cudaMemcpyHostToDevice);
 	return cudaPeekAtLastError();
 }
 
 void randomizeMatrix(matrix *m, float max){
-	for(int i = 0; i < m.height, i++){
-		for(int j = 0; j < width, j++){
-			setElement(m, j, i, max*((float)rand()/RAND_MAX));
+	for(int i = 0; i < m->height; i++){
+		for(int j = 0; j < m->width; j++){
+			float r = max*((float)rand()/RAND_MAX) - max/2.0;
+			setElement(*m, j, i, r);
 		}
 	}
 }
 void randomizeVector(vector v, float max){
 	for(int element = 0; element < v.length; element++){
-		setElement(v, element, max*((float)rand()/RAND_MAX));
+		setElement(v, element, max*((float)rand()/RAND_MAX) - max/2.0);
+	}
+}
+
+void printMatrix(matrix m){
+	for(int i = 0; i < m.width; i++){
+		printf("[");
+		for(int j = 0; j < m.height - 1; j++){
+			printf("%3.3f, ", getElement(m, i, j));
+		}
+		printf("%3.3f]\n", getElement(m, i, m.height-1));
+	}
+}
+
+void printVector(vector v){
+	printf("[");
+	for(int i = 0; i < v.length-1; i++){
+		printf("%3.3f, ", getElement(v, i));
+	}
+	printf("%3.3f]\n", getElement(v, v.length - 1));
+}
+
+void generateIdentity(matrix m){
+	if(m.height != m.width){return;}
+	for(int i = 0; i < m.height; i++){
+		setElement(m, i, i, 1.0);
 	}
 }

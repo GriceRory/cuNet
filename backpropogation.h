@@ -1,11 +1,11 @@
 
-int train(network *n, database db);//returns current cudaStatus
+void train(network *n, database db);//returns current cudaStatus
 int backpropogate(network *n, float *input, float *expected);//returns current cudaStatus
 int calculateNodes(network *n, float *input, float *node_outputs);
 
 //training functions
 int calculate_next_delta(network n, network dn, float *node_outputs);//returns current cudaStatus
-int apply_deltas(network *n, network dn);//returns current cudaStatus
+void apply_deltas(network *n, network dn);//returns current cudaStatus
 __global__ void calculate_next_layer_weight_changes(network dn, int layer, float *node_outputs, float *node_derivatives);
 __global__ void calculate_next_layer_bias_changes(network dn, int layer, float *node_outputs, float *node_derivatives);
 __global__ void calculate_next_layer_node_derivatves(network n, int layer, float *node_outputs, float *node_derivatives);
@@ -13,25 +13,25 @@ int calculate_node_derivatives(network n, float * node_outputs, float *node_deri
 
 
 //TO-DO
-int train(network *n, database *sample){
+void train(network *n, database *sample){
 	for(int i = 0; i < sample->size; i++){
 		backpropogate(n, sample->inputs[i], sample->outputs[i]);
 	}
 }
 
-int apply_deltas(network *n, network dn){
+void apply_deltas(network *n, network dn){
 	for(int layer = 0; layer < n->number_of_layers-2; layer++){
 		dim3 threadsPerBlock(BLOCK_SIZE, BLOCK_SIZE);
 		dim3 blocks(n->weights[layer]->height / BLOCK_SIZE + 1, n->weights[layer]->width / BLOCK_SIZE + 1);
-		addMatrix<<<threadsPerBlock, blocks>>>(n->weights[layer] , dn.weights[layer]);
+		matrixAdd<<<threadsPerBlock, blocks>>>(n->weights[layer] , dn.weights[layer]);
 
 		int threads = BLOCK_SIZE;
 		int block = n->biases[layer]->length/BLOCK_SIZE + 1;
-		addVector<<<threads, block>>>(n->biases[layer], dn.biases[layer]);
+		vectorAdd<<<threads, block>>>(n->biases[layer], dn.biases[layer]);
 	}
 	int threads = BLOCK_SIZE;
 	int block = n->biases[n->number_of_layers]->length/BLOCK_SIZE + 1;
-	addVector<<<threads, block>>>(n->biases[n->number_of_layers - 1], dn.biases[n->number_of_layers - 1]);
+	vectorAdd<<<threads, block>>>(n->biases[n->number_of_layers - 1], dn.biases[n->number_of_layers - 1]);
 }
 
 __global__ void calculate_next_layer_weight_changes(network dn, int layer, float *node_outputs, float *node_derivatives){
@@ -65,10 +65,10 @@ __global__ void calculate_next_layer_node_derivatves(network n, int layer, float
 			dNodeOutputNextLayer_by_dNodeInputNextLayer *
 			dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
 	//and then calculate the derivative by computing their sum
-	for(int i = 2; i < BLOCK_SIZE / 2; i *= 2){
+	for(int i = 2; i < BLOCK_SIZE; i *= 2){
 		__syncthreads();
 		if(threadIdx.x < BLOCK_SIZE / i){
-			node_derivative_components[threadIdx.x] += node_derivative_components[2*threadIdx.x];
+			node_derivative_components[threadIdx.x] += node_derivative_components[threadIdx.x + BLOCK_SIZE/i];
 		}
 		__syncthreads();
 	}
