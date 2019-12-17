@@ -87,10 +87,9 @@ void testAlgebraFunctions(){
 	//testVectorAdd();
 	//testMatrixAdd();
 }
-
 void testMatrixMultiply(){
 	int failed = 0;
-	int height = 5;
+	int height = 6;
 	int width = 5;
 	int length = height;
 	float max = 10.0;
@@ -103,9 +102,9 @@ void testMatrixMultiply(){
 	M = buildMatrix(height, width);
 	int build_d_M = cudaBuildMatrix(&d_M, height, width);
 	in = buildVector(length);
-	out = buildVector(length);
+	out = buildVector(width);
 	int build_d_in = cudaBuildVector(&d_in, length);
-	int build_d_out = cudaBuildVector(&d_out, length);
+	int build_d_out = cudaBuildVector(&d_out, width);
 	randomizeMatrix(&M, max);
 	randomizeVector(in, max);
 	int vector_copy_host_to_device = copyHostToDevice(&in, &d_in);
@@ -113,24 +112,27 @@ void testMatrixMultiply(){
 	printf("%d, %d, %d, %d, %d\n", build_d_M, build_d_in, build_d_out, vector_copy_host_to_device, matrix_copy_host_to_device);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks = width;
-	matrixMultiply<<<threads_per_block, blocks>>>(d_in, M, d_out);
+	matrixMultiply<<<threads_per_block, blocks>>>(d_in, d_M, d_out);
 	printf("%d\n", cudaGetLastError());
 	cudaDeviceSynchronize();
 	printf("%d\n", cudaGetLastError());
 	int vector_copy_device_to_host = copyDeviceToHost(&d_out, &out);
 	printf("%d\n", cudaGetLastError());
+	int matrix_copy_device_to_host = copyDeviceToHost(&d_M, &M);
+	printf("%d\n", cudaGetLastError());
 
-	printf("in \n");
+	printf("in: ");
 	printVector(in);
-	printf("\nmatrix \n");
+	printf("\nmatrix: \n");
 	printMatrix(M);
-	printf("\nout\n");
+	printf("\nout: ");
 	printVector(out);
+	printf("\n");
 
 	for(int i = 0; i < width; i++){
 		float temp = 0.0;
 		for(int j = 0; j < height; j++){
-			temp += getElement(M, i, j) * getElement(in, j);
+			temp += getElement(M, j, i) * getElement(in, i);
 		}
 		if(getElement(out, i) != temp){
 			printf("failed on index %d with out = %.3f, expected = %.3f\n", i, getElement(out, i), temp);
@@ -185,7 +187,7 @@ void testMatrixAdd(){}
 
 int main(){
 	srand(time(NULL));
-	//testMatrixMemoryFunctions();
-	//testVectorMemoryFunctions();
+	testMatrixMemoryFunctions();
+	testVectorMemoryFunctions();
 	testAlgebraFunctions();
 }

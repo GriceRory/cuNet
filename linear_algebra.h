@@ -52,15 +52,27 @@ int copyHostToDevice(vector *host, vector *device);
 int copyDeviceToHost(vector *device, vector *host);
 
 __host__ __device__ float getElement(matrix m, int row, int col){
+	if(row > m.height || col > m.width){
+		return 0.0/0.0;
+	}
 	return m.elements[row*m.width + col];
 }
 __host__ __device__ void setElement(matrix m, int row, int col, float element){
+	if(row > m.height || col > m.width){
+		return;
+	}
 	m.elements[row*m.width + col] = element;
 }
 __host__ __device__ float getElement(vector v, int element){
+	if(v.length < element){
+		return 0.0/0.0;
+	}
 	return v.elements[element];
 }
 __host__ __device__ void setElement(vector v, int element, float value){
+	if(v.length < element){
+		return;
+	}
 	v.elements[element] = value;
 }
 
@@ -82,7 +94,7 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 	__shared__ float reduced_sum[BLOCK_SIZE + 1];
 	//if the column(block) is outside the column width.
 	int col = blockIdx.x;
-	if(col > M.width){return;}
+	if(col >= M.width){return;}
 
 	//for each subset of the vector matrix multiplication of size BLOCK_SIZE
 	for(int block = 0; block < input.length/BLOCK_SIZE + 1; block++){
@@ -103,15 +115,13 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 		reduced_sum[BLOCK_SIZE] += reduced_sum[0];
 	}
 	//set the element output.
-	setElement(out, blockDim.x*blockIdx.x, reduced_sum[BLOCK_SIZE]);
+	setElement(out, col, reduced_sum[BLOCK_SIZE]);
 }
 
 __device__ void reduce(float *reduced_sum){
-	for(int i = 2; i < BLOCK_SIZE; i *= 2){
+	for(int i = 2; i <= BLOCK_SIZE/2; i *= 2){
 		__syncthreads();
-		if(threadIdx.x < BLOCK_SIZE / i){
-			reduced_sum[threadIdx.x] += reduced_sum[threadIdx.x + BLOCK_SIZE/i];
-		}
+		reduced_sum[threadIdx.x] += reduced_sum[threadIdx.x + BLOCK_SIZE/i];
 		__syncthreads();
 	}
 }
@@ -196,8 +206,8 @@ int copyHostToDevice(vector *host, vector *device){
 void randomizeMatrix(matrix *m, float max){
 	for(int i = 0; i < m->height; i++){
 		for(int j = 0; j < m->width; j++){
-			float r = max*((float)rand()/RAND_MAX) - max/2.0;
-			setElement(*m, j, i, r);
+			float val = max*((float)rand()/RAND_MAX) - max/2.0;
+			setElement(*m, i, j, val);
 		}
 	}
 }
@@ -208,12 +218,12 @@ void randomizeVector(vector v, float max){
 }
 
 void printMatrix(matrix m){
-	for(int i = 0; i < m.width; i++){
+	for(int i = 0; i < m.height; i++){
 		printf("[");
-		for(int j = 0; j < m.height - 1; j++){
+		for(int j = 0; j < m.width - 1; j++){
 			printf("%3.3f, ", getElement(m, i, j));
 		}
-		printf("%3.3f]\n", getElement(m, i, m.height-1));
+		printf("%3.3f]\n", getElement(m, i, m.width - 1));
 	}
 }
 
