@@ -78,14 +78,15 @@ __host__ __device__ void setElement(vector v, int element, float value){
 
 
 __global__ void matrixAdd(matrix target, matrix addition){
-	int x = threadIdx.x + blockIdx.x*blockDim.x;
-	int y = threadIdx.x + blockIdx.x*blockDim.x;
-	float value = getElement(target, x, y);
-	setElement(target, x, y, value + getElement(addition, x, y));
+	int row = threadIdx.x;
+	int col = blockIdx.x;
+	if(row > target.width || col > target.height){return;}
+	float value = getElement(target, row, col) + getElement(addition, row, col);
+	setElement(target, row, col, value);
 }
 __global__ void vectorAdd(vector target, vector addition){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
-	if(idx < target.length){return;}
+	if(idx > target.length){return;}
 	float value = getElement(target, idx);
 	setElement(target, idx, value + getElement(addition, idx));
 }
@@ -206,14 +207,14 @@ int copyHostToDevice(vector *host, vector *device){
 void randomizeMatrix(matrix *m, float max){
 	for(int i = 0; i < m->height; i++){
 		for(int j = 0; j < m->width; j++){
-			float val = max*((float)rand()/RAND_MAX) - max/2.0;
+			float val = 2*max*((float)rand()/RAND_MAX) - max;
 			setElement(*m, i, j, val);
 		}
 	}
 }
 void randomizeVector(vector v, float max){
 	for(int element = 0; element < v.length; element++){
-		setElement(v, element, max*((float)rand()/RAND_MAX) - max/2.0);
+		setElement(v, element, 2*max*((float)rand()/RAND_MAX) - max);
 	}
 }
 
