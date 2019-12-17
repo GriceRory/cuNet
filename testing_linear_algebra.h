@@ -1,6 +1,6 @@
 #include "linear_algebra.h"
 
-
+void testMemoryFunctions();
 void testMatrixMemoryFunctions();
 void testVectorMemoryFunctions();
 void testAlgebraFunctions();
@@ -8,6 +8,11 @@ void testMatrixMultiply();
 void testVectorAdd();
 void testMatrixAdd();
 
+
+void testMemoryFunctions(){
+	testMatrixMemoryFunctions();
+	testVectorMemoryFunctions();
+}
 void testMatrixMemoryFunctions(){
 	int failed = 0;
 	printf("testing matrix memory functions\n");
@@ -133,7 +138,6 @@ void testMatrixMultiply(){
 	if(failed){printf("failed\n");
 	}else{printf("successfully tested matrix multiplication\n\n\n");}
 }
-
 void testVectorAdd(){
 	int failed = 0;
 	printf("testing vector addition\n");
@@ -170,7 +174,6 @@ void testVectorAdd(){
 	if(failed){printf("failed\n");
 	}else{printf("successfully tested vector addition\n\n\n");}
 }
-
 void testMatrixAdd(){
 	int failed = 0;
 	printf("testing matrix addition\n");
@@ -208,9 +211,10 @@ void testMatrixAdd(){
 }
 
 
-int main(){
+void testLinearAlgebra(){
+	printf("testing linear_algebra.\n\n");
 	srand(time(NULL));
-	testMatrixMemoryFunctions();
-	testVectorMemoryFunctions();
+	testMemoryFunctions();
 	testAlgebraFunctions();
+	printf("finished testing linear_algebra.h\n\n\n");
 }
