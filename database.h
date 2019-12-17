@@ -1,11 +1,11 @@
 #include <stdio.h>
-#include<stdlib.h>
+#include <stdlib.h>
 
-struct database{
+typedef struct{
   vector **inputs;
   vector **outputs;
   int size;
-};
+}database;
 
 
 //memory management
@@ -15,15 +15,15 @@ int copyHostToDevice(database *host, database *device);
 int copyDeviceToHost(database *device, database *host);
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer);
-void writeVector(vector *v, File *file_pointer);
+void writeVector(vector *v, FILE *file_pointer);
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer){
-	*v = new vector;
 	v->length = vectorLength;
-	v->elements = malloc(sizeof(float)*vectorLength);
+	v->elements = (float *)malloc(sizeof(float)*vectorLength);
 	for(int element = 0; element < vectorLength; element++){
+		int tempLength = 40;
 		char ch = fgetc(file_pointer);
-		char temp = malloc(sizeof(char)*40);
+		char *temp = (char *)malloc(sizeof(char)*tempLenght);
 		for(int i = 0; i < tempLength || ch != ',' || ch != '\n'; i++){
 			temp[i] = ch;
 			ch = fgetc(file_pointer);
@@ -32,7 +32,7 @@ void readVector(vector *v, int vectorLength, FILE *file_pointer){
 		v->elements[element] = strtof(ch, NULL);
 	}
 }
-void writeVector(vector *v, File *file_pointer){
+void writeVector(vector *v, FILE *file_pointer){
 	for(int element = 0; element < v->length; element++){
 		fprintf(file_pointer, "%f,",v->elements[element]);
 	}
@@ -69,7 +69,7 @@ int saveDatabase(database *db, char *f){
 	return 1;
 }
 int copyHostToDevice(database *host, database *device){
-	cudaMemcpy(device->size, host->size, sizeof(int), cudaMemcpyHostToDevice);
+	device->size = host->size;
 	cudaMalloc(&device->inputs, sizeof(void *)*host->size);
 	cudaMalloc(&device->outputs, sizeof(void *)*host->size);
 	for(int inputOutputPair = 0; inputOutputPair < host->size; inputOutputPair++){
@@ -78,7 +78,7 @@ int copyHostToDevice(database *host, database *device){
 	}
 }
 int copyDeviceToHost(database *device, database *host){
-	cudaMemcpy(device->size, host->size, sizeof(int), cudaMemcpyDeviceToHost);
+	host->size = device->size;
 	cudaMalloc(&host->inputs, sizeof(void *)*device->size);
 	cudaMalloc(&host->outputs, sizeof(void *)*device->size);
 	for(int inputOutputPair = 0; inputOutputPair < host->size; inputOutputPair++){

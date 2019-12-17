@@ -1,24 +1,21 @@
 #include "linear_algebra.h"
 
 void testMemoryFunctions();
-void testMatrixMemoryFunctions();
-void testVectorMemoryFunctions();
+void testMatrixMemoryFunctions(int height, int width, float max);
+void testVectorMemoryFunctions(int length, float max);
 void testAlgebraFunctions();
-void testMatrixMultiply();
-void testVectorAdd();
-void testMatrixAdd();
+void testMatrixMultiply(int height, int width, float max);
+void testVectorAdd(int length, float max);
+void testMatrixAdd(int height, int width, float max);
 
 
 void testMemoryFunctions(){
-	testMatrixMemoryFunctions();
-	testVectorMemoryFunctions();
+	testMatrixMemoryFunctions(51, 50, 20.0);
+	testVectorMemoryFunctions(21, 20.0);
 }
-void testMatrixMemoryFunctions(){
+void testMatrixMemoryFunctions(int height, int width, float max){
 	int failed = 0;
 	printf("testing matrix memory functions\n");
-	int height = 56;
-	int width = 51;
-	float max = 20.0;
 	matrix d_A;
 	matrix A;
 	matrix B;
@@ -51,11 +48,9 @@ void testMatrixMemoryFunctions(){
 		printMatrix(B);
 	}
 }
-void testVectorMemoryFunctions(){
+void testVectorMemoryFunctions(int length, float max){
 	int failed = 0;
 	printf("testing vector memory functions\n");
-	int length = 21;
-	float max = 20.0;
 	vector d_A;
 	vector A;
 	vector B;
@@ -88,16 +83,13 @@ void testVectorMemoryFunctions(){
 void testAlgebraFunctions(){
 	printf("testing algebra functions\n");
 
-	testMatrixMultiply();
-	testVectorAdd();
-	testMatrixAdd();
+	testMatrixMultiply(51, 52, 20.0);
+	testVectorAdd(101, 20.0);
+	testMatrixAdd(51, 53, 20.0);
 }
-void testMatrixMultiply(){
+void testMatrixMultiply(int height, int width, float max){
 	int failed = 0;
-	int height = 1;
-	int width = 5;
 	int length = height;
-	float max = 10.0;
 	printf("\ntesting matrix multiply\n");
 
 	matrix M;
@@ -138,11 +130,9 @@ void testMatrixMultiply(){
 	if(failed){printf("failed\n");
 	}else{printf("successfully tested matrix multiplication\n\n\n");}
 }
-void testVectorAdd(){
+void testVectorAdd(int length, float max){
 	int failed = 0;
 	printf("testing vector addition\n");
-	int length = 50;
-	float max = 20.0;
 	vector v = buildVector(length);
 	vector w = buildVector(length);
 	vector u = buildVector(length);
@@ -174,12 +164,9 @@ void testVectorAdd(){
 	if(failed){printf("failed\n");
 	}else{printf("successfully tested vector addition\n\n\n");}
 }
-void testMatrixAdd(){
+void testMatrixAdd(int height, int width, float max){
 	int failed = 0;
 	printf("testing matrix addition\n");
-	int height = 5;
-	int width = 5;
-	float max = 20.0;
 	matrix A = buildMatrix(height, width), B = buildMatrix(height, width), C = buildMatrix(height, width);
 	matrix d_A, d_B;
 	cudaBuildMatrix(&d_A, height, width);
