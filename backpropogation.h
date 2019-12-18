@@ -2,7 +2,7 @@
 
 
 void train(network *n, database db);//returns current cudaStatus
-int backpropogate(network *n, vector *input, vector *expected);//returns current cudaStatus
+int backpropogate(network *n, vector input, vector expected);//returns current cudaStatus
 vector** calculateNodes(network *n, vector input);
 
 //training functions
@@ -16,7 +16,7 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 
 void train(network *n, database *sample){
 	for(int i = 0; i < sample->size; i++){
-		backpropogate(n, sample->inputs[i], sample->outputs[i]);
+		backpropogate(n, *(sample->inputs[i]), *(sample->outputs[i]));
 	}
 }
 

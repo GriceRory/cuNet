@@ -80,7 +80,7 @@ __host__ __device__ void setElement(vector v, int element, float value){
 __global__ void matrixAdd(matrix target, matrix addition){
 	int row = threadIdx.x;
 	int col = blockIdx.x;
-	if(row > target.width || col > target.height){return;}
+	if(row >= target.width || col >= target.height){return;}
 	float value = getElement(target, row, col) + getElement(addition, row, col);
 	setElement(target, row, col, value);
 }

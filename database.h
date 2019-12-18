@@ -11,8 +11,8 @@ typedef struct{
 //memory management
 int buildDatabase(database *db, char *f);
 int saveDatabase(database *db, char *f);
-int copyHostToDevice(database *host, database *device);
-int copyDeviceToHost(database *device, database *host);
+void copyHostToDevice(database *host, database *device);
+void copyDeviceToHost(database *device, database *host);
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer);
 void writeVector(vector *v, FILE *file_pointer);
@@ -25,12 +25,14 @@ void readVector(vector *v, int vectorLength, FILE *file_pointer){
 		int tempLength = 40;
 		char ch = fgetc(file_pointer);
 		char *temp = (char *)malloc(sizeof(char)*tempLength);
-		for(int i = 0; i < tempLength || ch != ',' || ch != '\n'; i++){
+		int i;
+		for(i = 0; i < tempLength || ch != ',' || ch != '\n'; i++){
 			temp[i] = ch;
 			ch = fgetc(file_pointer);
 		}
+		temp[i] = '\0';
 		free(temp);
-		v->elements[element] = strtof(ch, NULL);
+		v->elements[element] = atof(temp);
 	}
 }
 void writeVector(vector *v, FILE *file_pointer){
@@ -45,16 +47,17 @@ int buildDataBase(database *db, char *f){
 	FILE *file_pointer = fopen(f, "r");
 	if(file_pointer == NULL){return 0;}
 
+	/*
 	db->size = readInt(file_pointer);
 	int input_length = readInt(file_pointer);
 	int output_length = readInt(file_pointer);
-	db->inputs = malloc(sizeof(void *)*db->size);
-	db->outputs = malloc(sizeof(void *)*db->size);
+	db->inputs = (vector**)malloc(sizeof(vector*)*db->size);
+	db->outputs = (vector**)malloc(sizeof(vector*)*db->size);
 
 	for(int line = 0; line < db->size; line++){
-		readVector(db->inputs[line]->elements, input_length, file_pointer);
-		readVector(db->outputs[line]->elements, output_length, file_pointer);
-	}
+		readVector(db->inputs[line], input_length, file_pointer);
+		readVector(db->outputs[line], output_length, file_pointer);
+	}*/
 	fclose(file_pointer);
 	return 1;
 }
@@ -69,7 +72,7 @@ int saveDatabase(database *db, char *f){
 	fclose(file_pointer);
 	return 1;
 }
-int copyHostToDevice(database *host, database *device){
+void copyHostToDevice(database *host, database *device){
 	device->size = host->size;
 	cudaMalloc(&device->inputs, sizeof(void *)*host->size);
 	cudaMalloc(&device->outputs, sizeof(void *)*host->size);
@@ -78,8 +81,9 @@ int copyHostToDevice(database *host, database *device){
 		copyDeviceToHost(host->outputs[inputOutputPair], device->outputs[inputOutputPair]);
 	}
 }
-int copyDeviceToHost(database *device, database *host){
+void copyDeviceToHost(database *device, database *host){
 	host->size = device->size;
+	//copying these pointers is utterly meaningless
 	cudaMalloc(&host->inputs, sizeof(void *)*device->size);
 	cudaMalloc(&host->outputs, sizeof(void *)*device->size);
 	for(int inputOutputPair = 0; inputOutputPair < host->size; inputOutputPair++){
