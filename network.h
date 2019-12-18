@@ -13,7 +13,6 @@ typedef struct{
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "backpropogation.h"
 
 
 
@@ -32,6 +31,7 @@ __device__ float sigmoid(float input);
 __device__ float sigmoid_derivative(float output);
 __global__ void apply_signal_function(vector v, float (*signal_function)(float));
 
+#include "backpropogation.h"
 
 network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float)){
 	network n;
@@ -64,7 +64,6 @@ int runNetwork(network n, vector input, vector *output){
 	return_cuda_status
 	copyHostToDevice(&input, &current_node_values);
 	return_cuda_status
-	vector next_node_values;
 	cudaBuildVector(&next_node_values, n.nodes_in_layer[1]);
 	return_cuda_status
 	for(int current_layer = 0; current_layer < n.number_of_layers - 1; current_layer++){

@@ -16,14 +16,15 @@ int copyDeviceToHost(database *device, database *host);
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer);
 void writeVector(vector *v, FILE *file_pointer);
+int readInt(FILE *file_pointer);
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer){
 	v->length = vectorLength;
-	v->elements = (float *)malloc(sizeof(float)*vectorLength);
+	v->elements = (float *) malloc(sizeof(float)*vectorLength);
 	for(int element = 0; element < vectorLength; element++){
 		int tempLength = 40;
 		char ch = fgetc(file_pointer);
-		char *temp = (char *)malloc(sizeof(char)*tempLenght);
+		char *temp = (char *)malloc(sizeof(char)*tempLength);
 		for(int i = 0; i < tempLength || ch != ',' || ch != '\n'; i++){
 			temp[i] = ch;
 			ch = fgetc(file_pointer);
