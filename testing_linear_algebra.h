@@ -83,7 +83,7 @@ void testVectorMemoryFunctions(int length, float max){
 void testAlgebraFunctions(){
 	printf("testing algebra functions\n");
 
-	testMatrixMultiply(5, 3, 20.0);
+	testMatrixMultiply(30, 30, 20.0);
 	testVectorAdd(1011, 20.0);
 	testMatrixAdd(53, 56, 20.0);
 }
@@ -111,9 +111,8 @@ void testMatrixMultiply(int height, int width, float max){
 	matrixMultiply<<<threads_per_block, blocks>>>(d_in, d_M, d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
-	printf("cuda last error: %d\n", matrix_multiply);
+	printf("cuda last error matrix multiply: %d\n", matrix_multiply);
 	int vector_copy_device_to_host = copyDeviceToHost(&d_out, &out);
-	int matrix_copy_device_to_host = copyDeviceToHost(&d_M, &M);
 
 	for(int i = 0; i < width; i++){
 		float temp = 0.0;

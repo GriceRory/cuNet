@@ -95,35 +95,38 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 	__shared__ float reduced_sum[BLOCK_SIZE + 1];
 	//if the column(block) is outside the column width.
 	int col = blockIdx.x;
-	if(col > M.width){return;}
+	if(col >= M.width){return;}
 
 	//for each subset of the vector matrix multiplication of size BLOCK_SIZE
-	for(int block = 0; block < input.length/BLOCK_SIZE + 1; block++){
+	for(int thread_group = 0; thread_group < input.length/BLOCK_SIZE + 1; thread_group++){
 		//calculate the index we are at in this subset
-		int row = threadIdx.x + block*BLOCK_SIZE;
-		//if the index is past the length of the vector
+		int row = threadIdx.x + thread_group*BLOCK_SIZE;
+		//if the index is past the length of the vector its component is zero
 		if(row > input.length){
 			reduced_sum[threadIdx.x] = 0;
-			return;
+		}else{
+			//calculate this component of the multiplication
+			reduced_sum[threadIdx.x] = getElement(input, row) * getElement(M, row, col);
 		}
-		//calculate this component of the multiplication
-		reduced_sum[threadIdx.x] = getElement(input, row) * getElement(M, row, col);
-
 		//calculate the reduced sum of the components in this subset
 		reduce(reduced_sum);
 
 		//add the reduced sum of the components in this subset to the tally of all the reduced sums.
-		reduced_sum[BLOCK_SIZE] += reduced_sum[0];
+		//reduced_sum[BLOCK_SIZE] += reduced_sum[0];
 	}
 	//set the element output.
 	setElement(out, col, reduced_sum[BLOCK_SIZE]);
 }
 
 __device__ void reduce(float *reduced_sum){
+	/*
 	for(int i = 2; i <= BLOCK_SIZE/2; i *= 2){
 		__syncthreads();
 		reduced_sum[threadIdx.x] += reduced_sum[threadIdx.x + BLOCK_SIZE/i];
 		__syncthreads();
+	}*/
+	for(int i = 0; i < BLOCK_SIZE - 1; i++){
+		reduced_sum[BLOCK_SIZE] += reduced_sum[i];
 	}
 }
 
@@ -207,14 +210,15 @@ int copyHostToDevice(vector *host, vector *device){
 void randomizeMatrix(matrix *m, float max){
 	for(int i = 0; i < m->height; i++){
 		for(int j = 0; j < m->width; j++){
-			float val = 2*max*((float)rand()/RAND_MAX) - max;
+			float val = rand()%4;//2*max*((float)rand()/RAND_MAX) - max;
 			setElement(*m, i, j, val);
 		}
 	}
 }
 void randomizeVector(vector v, float max){
 	for(int element = 0; element < v.length; element++){
-		setElement(v, element, 2*max*((float)rand()/RAND_MAX) - max);
+		float val = 1;//2*max*((float)rand()/RAND_MAX) - max;
+		setElement(v, element, val);
 	}
 }
 
