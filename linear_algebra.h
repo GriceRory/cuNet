@@ -78,9 +78,9 @@ __host__ __device__ void setElement(vector v, int element, float value){
 
 
 __global__ void matrixAdd(matrix target, matrix addition){
-	int row = threadIdx.x;
-	int col = blockIdx.x;
-	if(row >= target.width || col >= target.height){return;}
+	if(threadIdx.x + blockIdx.x*blockDim.x > target.height * target.width){return;}
+	int row = (threadIdx.x + blockIdx.x*blockDim.x)/target.width;
+	int col = (threadIdx.x + blockIdx.x*blockDim.x) - target.width*row;
 	float value = getElement(target, row, col) + getElement(addition, row, col);
 	setElement(target, row, col, value);
 }
@@ -95,7 +95,7 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 	__shared__ float reduced_sum[BLOCK_SIZE + 1];
 	//if the column(block) is outside the column width.
 	int col = blockIdx.x;
-	if(col >= M.width){return;}
+	if(col > M.width){return;}
 
 	//for each subset of the vector matrix multiplication of size BLOCK_SIZE
 	for(int block = 0; block < input.length/BLOCK_SIZE + 1; block++){
