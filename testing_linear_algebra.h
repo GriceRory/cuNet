@@ -22,12 +22,12 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 	matrix B = buildMatrix(height, width);
 	randomizeMatrix(&A, max);
 
-	int i = copyHostToDevice(&A, &d_A);
-	failed = failed || i;
-	int j = copyDeviceToHost(&d_A, &B);
-	failed = failed || j;
-	int k = cudaFreeMatrix(&d_A);
-	failed = failed || k;
+	int copy_A_to_d_A = copyHostToDevice(&A, &d_A);
+	failed = failed || copy_A_to_d_A;
+	int copy_d_A_to_B = copyDeviceToHost(&d_A, &B);
+	failed = failed || copy_d_A_to_B;
+	int free_d_A = cudaFreeMatrix(&d_A);
+	failed = failed || free_d_A;
 	for(int i = 0; i < height; i++){
 		for(int j = 0; j < width; j++){
 			if(getElement(A, i, j) != getElement(B, i, j)){
@@ -37,11 +37,10 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 		}
 	}
 
-
 	if(!failed){
 		printf("successfully tested matrix memory functions\n\n\n");
 	}else{
-		printf("failed, i = %d, j = %d\n", i, j);
+		printf("failed = %d, copy to device = %d, copy to host = %d, free_matrix = %d\n", failed, copy_A_to_d_A, copy_d_A_to_B, free_d_A);
 		printMatrix(A);
 		printf("\n\n");
 		printMatrix(B);

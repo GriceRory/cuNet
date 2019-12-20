@@ -130,7 +130,7 @@ __device__ void reduce(float *reduced_sum){
 }
 
 matrix cudaBuildMatrix(int height, int width){
-	matrix *d_m = (matrix*)malloc(sizeof(matrix));
+	matrix *d_m = (matrix*)malloc(sizeof(matrix*));
 	cudaMalloc(&(d_m->elements), sizeof(float)*height*width);
 	d_m->height = height;
 	d_m->width = width;
@@ -160,7 +160,12 @@ int copyHostToDevice(matrix *host, matrix *device){
 	return cudaGetLastError();
 }
 int cudaFreeMatrix(matrix *device){
-	cudaFree((device->elements));
+	cudaFree(device->elements);
+	if(cudaPeekAtLastError() != cudaSuccess){
+		return cudaGetLastError();
+	}
+
+	//free((void*)device);//there is something wrong with this for some reason.
 	return cudaGetLastError();
 }
 void freeMatrix(matrix *host){
@@ -187,7 +192,7 @@ int cudaFreeVector(vector *device){
 void freeVector(vector *host){
 	if(host == NULL){return;}
 	free(host->elements);
-	free(host);
+	free((void*)host);
 	return;
 }
 int copyDeviceToHost(vector *device, vector *host){
