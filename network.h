@@ -19,6 +19,7 @@ typedef struct{
 
 //UTIL
 network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float));
+void setNetwork(network n, float max_weight, float max_bias);
 int runNetwork(network n, vector input, vector *output);
 int calculateLayer(matrix weights, vector biases, vector inputs, vector output, float (*signal)(float));
 __device__ float getWeight(network n, int layer, int node_from, int node_to);
@@ -59,6 +60,14 @@ network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), 
 	v = buildVector(nodes_in_layer[layers-1]);
 	n.biases[layers-1] = &v;
 	return n;
+}
+
+void setNetwork(network n, float max_weight, float max_bias){
+	for(int layer = 0; layer < n.number_of_layers - 1; layer++){
+		randomizeVector(*(n.biases[layer]), max_bias);
+		randomizeMatrix(n.weights[layer], max_weight);
+	}
+	randomizeVector(*(n.biases[n.number_of_layers - 1]), max_bias);
 }
 
 //given a network, input on device memory and a pointer to an output on host memory,
