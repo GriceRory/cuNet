@@ -35,7 +35,7 @@ __global__ void matrixAdd(matrix target, matrix addition);
 __global__ void vectorAdd(vector target, vector addition);
 
 //matrix memory
-int cudaBuildMatrix(matrix *d_m, int height, int width);
+matrix cudaBuildMatrix(int height, int width);
 matrix buildMatrix(int height, int width);
 int copyDeviceToHost(matrix *device, matrix *host);
 int copyHostToDevice(matrix *host, matrix *device);
@@ -129,18 +129,19 @@ __device__ void reduce(float *reduced_sum){
 	}
 }
 
-int cudaBuildMatrix(matrix *d_m, int height, int width){
+matrix cudaBuildMatrix(int height, int width){
+	matrix *d_m = (matrix*)malloc(sizeof(matrix));
+	cudaMalloc(&(d_m->elements), sizeof(float)*height*width);
 	d_m->height = height;
 	d_m->width = width;
-	cudaMalloc(&(d_m->elements), sizeof(float)*height*width);
-	return cudaGetLastError();
+	return *d_m;
 }
 matrix buildMatrix(int height, int width){
-	matrix m;
-	m.height = height;
-	m.width = width;
-	m.elements = (float*)malloc(sizeof(float)*height*width);
-	return m;
+	matrix *m = (matrix*)malloc(sizeof(matrix));
+	m->height = height;
+	m->width = width;
+	m->elements = (float*)malloc(sizeof(float)*height*width);
+	return *m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
 	host->width = device->width;
@@ -168,23 +169,23 @@ void freeMatrix(matrix *host){
 }
 
 vector buildVector(int length){
-	vector v;
-	v.length = length;
-	v.elements = (float*)(malloc(sizeof(float)*length));
-	return v;
+	vector *v = (vector*)malloc(sizeof(vector));
+	v->length = length;
+	v->elements = (float*)(malloc(sizeof(float)*length));
+	return *v;
 }
 int cudaBuildVector(vector *v, int length){
+	cudaMalloc(&v, sizeof(vector));
 	v->length = length;
 	cudaMalloc(&(v->elements), sizeof(float)*length);
 	return cudaGetLastError();
 }
 int cudaFreeVector(vector *device){
-	cudaFree((device->elements));
+	cudaFree(device->elements);
 	return cudaGetLastError();
 }
 void freeVector(vector *host){
 	if(host == NULL){return;}
-	free(&(host->length));
 	free(host->elements);
 	free(host);
 	return;
