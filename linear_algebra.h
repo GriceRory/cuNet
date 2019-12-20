@@ -2,7 +2,6 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <math.h>
 
 typedef struct{
 	int width;
@@ -79,7 +78,7 @@ __host__ __device__ void setElement(vector v, int element, float value){
 
 
 __global__ void matrixAdd(matrix target, matrix addition){
-	if(threadIdx.x + blockIdx.x*blockDim.x > target.height * target.width){return;}
+	if(threadIdx.x + blockIdx.x*blockDim.x >= target.height * target.width){return;}
 	int row = (threadIdx.x + blockIdx.x*blockDim.x)/target.width;
 	int col = (threadIdx.x + blockIdx.x*blockDim.x) - target.width*row;
 	float value = getElement(target, row, col) + getElement(addition, row, col);
@@ -87,7 +86,7 @@ __global__ void matrixAdd(matrix target, matrix addition){
 }
 __global__ void vectorAdd(vector target, vector addition){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
-	if(idx > target.length){return;}
+	if(idx >= target.length){return;}
 	float value = getElement(target, idx);
 	setElement(target, idx, value + getElement(addition, idx));
 }
@@ -160,9 +159,7 @@ int copyHostToDevice(matrix *host, matrix *device){
 	return cudaGetLastError();
 }
 int cudaFreeMatrix(matrix *device){
-	cudaFree(device->elements);
-	return_cuda_status
-	cudaFree(device);
+	cudaFree((device->elements));
 	return cudaGetLastError();
 }
 void freeMatrix(matrix *host){
@@ -182,9 +179,7 @@ int cudaBuildVector(vector *v, int length){
 	return cudaGetLastError();
 }
 int cudaFreeVector(vector *device){
-	cudaFree(device->elements);
-	return_cuda_status
-	cudaFree(device);
+	cudaFree((device->elements));
 	return cudaGetLastError();
 }
 void freeVector(vector *host){
@@ -210,14 +205,14 @@ int copyHostToDevice(vector *host, vector *device){
 void randomizeMatrix(matrix *m, float max){
 	for(int i = 0; i < m->height; i++){
 		for(int j = 0; j < m->width; j++){
-			float val = 1;//2*max*((float)rand()/RAND_MAX) - max;
+			float val = 2*max*((float)rand()/RAND_MAX) - max;
 			setElement(*m, i, j, val);
 		}
 	}
 }
 void randomizeVector(vector v, float max){
 	for(int element = 0; element < v.length; element++){
-		float val = 1;//2*max*((float)rand()/RAND_MAX) - max;
+		float val = 2*max*((float)rand()/RAND_MAX) - max;
 		setElement(v, element, val);
 	}
 }

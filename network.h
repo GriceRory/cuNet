@@ -35,6 +35,8 @@ __global__ void apply_signal_function(vector v, float (*signal_function)(float))
 
 network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float)){
 	network n;
+	vector v;
+	matrix m;
 	if(function == NULL){
 		n.signal_function = &sigmoid;
 		n.signal_derivative = &sigmoid_derivative;
@@ -48,11 +50,14 @@ network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), 
 	n.weights = (matrix**)malloc((layers-1)*sizeof(matrix*));
 	for(int i = 0; i < layers - 1; i ++){
 		n.nodes_in_layer[i] = nodes_in_layer[i];
-		*(n.biases[i]) = buildVector(nodes_in_layer[i]);
-		*(n.weights[i]) = buildMatrix(nodes_in_layer[i], nodes_in_layer[i+1]);
+		v = buildVector(nodes_in_layer[i]);
+		n.biases[i] = &v;
+		m = buildMatrix(nodes_in_layer[i], nodes_in_layer[i+1]);
+		n.weights[i] = &m;
 	}
 	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
-	*(n.biases[layers-1]) = buildVector(nodes_in_layer[layers-1]);
+	v = buildVector(nodes_in_layer[layers-1]);
+	n.biases[layers-1] = &v;
 	return n;
 }
 
