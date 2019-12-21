@@ -12,11 +12,18 @@ int testMatrixAdd(int height, int width, float max);
 int testMemoryFunctions(){
 	int matrix_failed = testMatrixMemoryFunctions(10, 11, 20.0);
 	int vector_failed = testVectorMemoryFunctions(5, 20.0);
+	for(int height = 60; height < 100; height++){
+		for(int width = 60; width < 100; width++){
+			matrix_failed |= testMatrixMemoryFunctions(height, width, 20.0);
+		}
+	}
+	for(int length = 60; length < 100; length++){
+		vector_failed |= testVectorMemoryFunctions(length, 20.0);
+	}
 	return matrix_failed || vector_failed;
 }
 int testMatrixMemoryFunctions(int height, int width, float max){
 	int failed = 0;
-	printf("testing matrix memory functions\n");
 	matrix *d_A = cudaBuildMatrix(height, width);
 	matrix *A = buildMatrix(height, width);
 	matrix *B = buildMatrix(height, width);
@@ -40,9 +47,7 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 
 	freeMatrix(A);
 
-	if(!failed){
-		printf("successfully tested matrix memory functions\n\n\n");
-	}else{
+	if(failed){
 		printf("failed = %d, copy to device = %d, copy to host = %d, free_matrix = %d\n", failed, copy_A_to_d_A, copy_d_A_to_B, free_d_A);
 		printMatrix(*A);
 		printf("\n\n");
@@ -50,10 +55,8 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 	}
 	return failed;
 }
-
 int testVectorMemoryFunctions(int length, float max){
 	int failed = 0;
-	printf("testing vector memory functions\n");
 	vector *d_A = cudaBuildVector(length);;
 	vector *A = buildVector(length);;
 	vector *B = buildVector(length);;
@@ -72,8 +75,7 @@ int testVectorMemoryFunctions(int length, float max){
 		}
 	}
 
-	if(!failed){printf("successfully tested vector memory functions\n\n\n");
-	}else{
+	if(failed){
 		printf("failed\n");
 		printVector(*A);
 		printf("\n\n");
@@ -86,21 +88,28 @@ int testAlgebraFunctions(){
 	printf("testing algebra functions\n");
 
 	int multiply_failed = testMatrixMultiply(30, 20, 20.0);
+	int matrix_add_failed = testMatrixAdd(100, 100, 20.0);
 	int vector_add_failed = testVectorAdd(1011, 20.0);
-	//int matrix_add_failed = testMatrixAdd(100, 100, 20.0);
-	return vector_add_failed || multiply_failed;
+
+	for(int height = 60; height < 70; height++){
+		vector_add_failed |= testVectorAdd(height, 20.0);
+		for(int width = 60; width < 70; width++){
+			multiply_failed = multiply_failed || testMatrixMultiply(height-55, width-55, 20.0);
+			matrix_add_failed |= testMatrixAdd(height, width, 20.0);
+		}
+	}
+	return matrix_add_failed || vector_add_failed || multiply_failed;
 }
 int testMatrixMultiply(int height, int width, float max){
 	int failed = 0;
 	int length = height;
-	printf("\ntesting matrix multiply\n");
 
-	matrix *M = buildMatrix(height, width);;
-	matrix *d_M = cudaBuildMatrix(height, width);;
+	matrix *M = buildMatrix(height, width);
+	matrix *d_M = cudaBuildMatrix(height, width);
 	vector *in = buildVector(length);
 	vector *out = buildVector(width);
 	vector *d_in = cudaBuildVector(length);
-	vector *d_out = cudaBuildVector(width);;
+	vector *d_out = cudaBuildVector(width);
 
 	randomizeMatrix(M, max);
 	randomizeVector(in, max);
@@ -108,7 +117,6 @@ int testMatrixMultiply(int height, int width, float max){
 	int matrix_copy_host_to_device = copyHostToDevice(M, d_M);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
-	cudaDeviceSynchronize();
 	matrixMultiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
@@ -131,19 +139,22 @@ int testMatrixMultiply(int height, int width, float max){
 	int free_d_out = cudaFreeVector(d_out);
 
 	if(failed){
-		printf("failed\n");
+		printf("failed matrix multiply\n");
 		printf("in:\n");
 		printVector(*in);
 		printf("M:\n");
 		printMatrix(*M);
 		printf("out:\n");
 		printVector(*out);
-	}else{printf("successfully tested matrix multiplication\n\n\n");}
+	}
+	free(M);
+	free(in);
+	free(out);
+
 	return failed;
 }
 int testVectorAdd(int length, float max){
 	int failed = 0;
-	printf("testing vector addition\n");
 	vector *v = buildVector(length);
 	vector *w = buildVector(length);
 	vector *u = buildVector(length);
@@ -172,18 +183,23 @@ int testVectorAdd(int length, float max){
 		}
 	}
 
-	if(failed){printf("failed\n");
-	}else{printf("successfully tested vector addition\n\n\n");}
+	cudaFreeVector(d_v);
+	cudaFreeVector(d_w);
+
+	if(failed){printf("failed\n");}
+
+	freeVector(v);
+	freeVector(w);
+	freeVector(u);
 	return failed;
 }
 int testMatrixAdd(int height, int width, float max){
 	int failed = 0;
-	printf("testing matrix addition\n");
 	matrix *A = buildMatrix(height, width),
-			*B = buildMatrix(height, width),
-			*C = buildMatrix(height, width);
-	matrix *d_A = cudaBuildMatrix(height, width);
-	matrix *d_B = cudaBuildMatrix(height, width);
+			   *B = buildMatrix(height, width),
+			   *C = buildMatrix(height, width),
+				 *d_A = cudaBuildMatrix(height, width),
+				 *d_B = cudaBuildMatrix(height, width);
 
 	randomizeMatrix(A, max);
 	randomizeMatrix(B, max);
@@ -207,8 +223,12 @@ int testMatrixAdd(int height, int width, float max){
 		}
 	}
 
-	if(failed){printf("failed\n");
-	}else{printf("successfully tested vector addition\n\n\n");}
+	if(failed){printf("failed\n");}
+	freeMatrix(A);
+	freeMatrix(B);
+	freeMatrix(C);
+	cudaFreeMatrix(d_A);
+	cudaFreeMatrix(d_B);
 	return failed;
 }
 
@@ -219,5 +239,5 @@ int testLinearAlgebra(){
 	int memory = testMemoryFunctions();
 	int algebra = testAlgebraFunctions();
 	printf("finished testing linear_algebra.h\n\n\n");
-	return memory;// || algebra;
+	return memory || algebra;
 }

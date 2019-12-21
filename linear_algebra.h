@@ -103,7 +103,9 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 		int row = threadIdx.x + thread_group*BLOCK_SIZE;
 		//if the index is past the length of the vector its component is zero
 		if(row < input.length){
-			reduced_sum[threadIdx.x] = getElement(input, row) * getElement(M, row, col);
+			float vector_value = getElement(input, row);
+			float matrix_value = getElement(M, row, col);
+			reduced_sum[threadIdx.x] = vector_value * matrix_value;
 		}else{
 			//calculate this component of the multiplication
 			reduced_sum[threadIdx.x] = 0.0;
@@ -226,6 +228,7 @@ void randomizeVector(vector *v, float max){
 }
 
 void printMatrix(matrix m){
+	printf("height = %d, width = %d\n", m.height, m.width);
 	for(int i = 0; i < m.height; i++){
 		printf("[");
 		for(int j = 0; j < m.width - 1; j++){
