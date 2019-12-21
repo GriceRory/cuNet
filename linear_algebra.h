@@ -35,16 +35,16 @@ __global__ void matrixAdd(matrix target, matrix addition);
 __global__ void vectorAdd(vector target, vector addition);
 
 //matrix memory
-matrix cudaBuildMatrix(int height, int width);
-matrix buildMatrix(int height, int width);
+matrix* cudaBuildMatrix(int height, int width);
+matrix* buildMatrix(int height, int width);
 int copyDeviceToHost(matrix *device, matrix *host);
 int copyHostToDevice(matrix *host, matrix *device);
 int cudaFreeMatrix(matrix *device);
 void freeMatrix(matrix *host);
 void randomizeMatrix(matrix *m, float max);
 //vector memory
-vector buildVector(int length);
-int cudaBuildVector(vector *v, int length);
+vector* buildVector(int length);
+vector* cudaBuildVector(int length);
 int cudaFreeVector(vector *device);
 void freeVector(vector *host);
 void randomizeVector(vector v, float max);
@@ -129,19 +129,19 @@ __device__ void reduce(float *reduced_sum){
 	}
 }
 
-matrix cudaBuildMatrix(int height, int width){
+matrix* cudaBuildMatrix(int height, int width){
 	matrix *d_m = (matrix*)malloc(sizeof(matrix*));
 	cudaMalloc(&(d_m->elements), sizeof(float)*height*width);
 	d_m->height = height;
 	d_m->width = width;
-	return *d_m;
+	return d_m;
 }
-matrix buildMatrix(int height, int width){
+matrix* buildMatrix(int height, int width){
 	matrix *m = (matrix*)malloc(sizeof(matrix));
 	m->height = height;
 	m->width = width;
 	m->elements = (float*)malloc(sizeof(float)*height*width);
-	return *m;
+	return m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
 	host->width = device->width;
@@ -165,28 +165,30 @@ int cudaFreeMatrix(matrix *device){
 		return cudaGetLastError();
 	}
 
-	//free((void*)device);//there is something wrong with this for some reason.
+	free((void*)device);//there is something wrong with this for some reason.
 	return cudaGetLastError();
 }
+
 void freeMatrix(matrix *host){
 	free(host->elements);
 	free(host);
 }
 
-vector buildVector(int length){
-	vector *v = (vector*)malloc(sizeof(vector));
+vector* buildVector(int length){
+	vector *v = (vector*)(malloc(sizeof(vector)));
 	v->length = length;
 	v->elements = (float*)(malloc(sizeof(float)*length));
-	return *v;
+	return v;
 }
-int cudaBuildVector(vector *v, int length){
-	cudaMalloc(&v, sizeof(vector));
+vector* cudaBuildVector(int length){
+	vector *v = (vector*)malloc(sizeof(vector));
 	v->length = length;
 	cudaMalloc(&(v->elements), sizeof(float)*length);
-	return cudaGetLastError();
+	return v;
 }
 int cudaFreeVector(vector *device){
 	cudaFree(device->elements);
+	free(device);
 	return cudaGetLastError();
 }
 void freeVector(vector *host){
@@ -216,10 +218,10 @@ void randomizeMatrix(matrix *m, float max){
 		}
 	}
 }
-void randomizeVector(vector v, float max){
-	for(int element = 0; element < v.length; element++){
+void randomizeVector(vector *v, float max){
+	for(int element = 0; element < v->length; element++){
 		float val = 2*max*((float)rand()/RAND_MAX) - max;
-		setElement(v, element, val);
+		setElement(*v, element, val);
 	}
 }
 

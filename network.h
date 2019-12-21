@@ -36,8 +36,8 @@ __global__ void apply_signal_function(vector v, float (*signal_function)(float))
 
 network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float)){
 	network n;
-	vector v;
-	matrix m;
+	vector *v;
+	matrix *m;
 	if(function == NULL){
 		n.signal_function = &sigmoid;
 		n.signal_derivative = &sigmoid_derivative;
@@ -52,36 +52,37 @@ network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), 
 	for(int i = 0; i < layers - 1; i ++){
 		n.nodes_in_layer[i] = nodes_in_layer[i];
 		v = buildVector(nodes_in_layer[i]);
-		n.biases[i] = &v;
+		n.biases[i] = v;
 		m = buildMatrix(nodes_in_layer[i], nodes_in_layer[i+1]);
-		n.weights[i] = &m;
+		n.weights[i] = m;
 	}
 	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
 	v = buildVector(nodes_in_layer[layers-1]);
-	n.biases[layers-1] = &v;
+	n.biases[layers-1] = v;
 	return n;
 }
 
 void setNetwork(network n, float max_weight, float max_bias){
 	for(int layer = 0; layer < n.number_of_layers - 1; layer++){
-		randomizeVector(*(n.biases[layer]), max_bias);
+		randomizeVector((n.biases[layer]), max_bias);
 		randomizeMatrix(n.weights[layer], max_weight);
 	}
-	randomizeVector(*(n.biases[n.number_of_layers - 1]), max_bias);
+	randomizeVector((n.biases[n.number_of_layers - 1]), max_bias);
 }
 
 //given a network, input on device memory and a pointer to an output on host memory,
 //calculates the output of the network on the given input.
 int runNetwork(network n, vector input, vector *output){
-	vector current_node_values,next_node_values;
-	cudaBuildVector(&current_node_values, n.nodes_in_layer[0]);
-	copyHostToDevice(&input, &current_node_values);
-	cudaBuildVector(&next_node_values, n.nodes_in_layer[1]);
+	vector *current_node_values = cudaBuildVector(n.nodes_in_layer[0]);
+	vector *next_node_values = cudaBuildVector(n.nodes_in_layer[1]);;
+
+	copyHostToDevice(&input, current_node_values);
+
 	for(int current_layer = 0; current_layer < n.number_of_layers - 1; current_layer++){
-		calculateLayer(*n.weights[current_layer], *n.biases[current_layer], current_node_values, next_node_values, n.signal_function);
+		calculateLayer(*n.weights[current_layer], *n.biases[current_layer], *current_node_values, *next_node_values, n.signal_function);
 		cudaDeviceSynchronize();
 	}
-	copyDeviceToHost(&next_node_values, output);
+	copyDeviceToHost(next_node_values, output);
 	return cudaGetLastError();
 }
 

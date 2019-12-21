@@ -80,9 +80,9 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 	cudaMalloc(&node_derivatives, n.number_of_layers*sizeof(vector*));
 
 	//calculation for the node derivatives in the last layer is simple.
-	vector LastLayerDerivative;
-	cudaBuildVector(&LastLayerDerivative, n.nodes_in_layer[n.number_of_layers-1]);
-	node_derivatives[n.number_of_layers - 1] = &LastLayerDerivative;
+	vector *LastLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);;
+
+	node_derivatives[n.number_of_layers - 1] = LastLayerDerivative;
 	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is probably faster on CPU than transferring to a GPU
 		float value = 2*(getElement(*node_outputs[n.number_of_layers - 1], node) - getElement(expected_output, node));
 		setElement(*(node_derivatives[node]), node, value);
@@ -90,9 +90,8 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 
 	//calculates each layer then checks for cuda errors.
 	for(int layer = n.number_of_layers - 2; layer >= 0; layer--){
-		vector thisLayerDerivative;
-		cudaBuildVector(&thisLayerDerivative, n.nodes_in_layer[n.number_of_layers-1]);
-		node_derivatives[n.number_of_layers - 1] = &thisLayerDerivative;
+		vector *thisLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);
+		node_derivatives[n.number_of_layers - 1] = thisLayerDerivative;
 		int threadsPerBlock = n.nodes_in_layer[layer];
 		int blocks = n.nodes_in_layer[layer + 1];
 		calculate_next_layer_node_derivatves<<<threadsPerBlock, blocks>>>(n, layer, *node_outputs[layer], *node_derivatives[layer + 1], *node_derivatives[layer]);
@@ -122,14 +121,12 @@ vector** calculateNodes(network *n, vector input){
 	vector** node_outputs;
 
 	for(int layer = 0; layer < n->number_of_layers; layer++){
-		vector current_node_values;
-		cudaBuildVector(&current_node_values, n->nodes_in_layer[layer]);
-		cudaMemcpy(current_node_values.elements, node_outputs[layer]->elements, sizeof(float)*current_node_values.length, cudaMemcpyDeviceToDevice);
+		vector *current_node_values = cudaBuildVector(n->nodes_in_layer[layer]);
+		cudaMemcpy(current_node_values->elements, node_outputs[layer]->elements, sizeof(float)*current_node_values->length, cudaMemcpyDeviceToDevice);
 
-		vector next_node_values;
-		cudaBuildVector(&next_node_values, n->nodes_in_layer[layer+1]);
-		calculateLayer(*(n->weights[layer]), *(n->biases[layer]), current_node_values, next_node_values, n->signal_function);
-		cudaMemcpy(node_outputs[layer + 1]->elements, next_node_values.elements, sizeof(float)*current_node_values.length, cudaMemcpyDeviceToDevice);
+		vector *next_node_values = cudaBuildVector(n->nodes_in_layer[layer+1]);
+		calculateLayer(*(n->weights[layer]), *(n->biases[layer]), *current_node_values, *next_node_values, n->signal_function);
+		cudaMemcpy(node_outputs[layer + 1]->elements, next_node_values->elements, sizeof(float)*current_node_values->length, cudaMemcpyDeviceToDevice);
 	}
 	return node_outputs;
 }
