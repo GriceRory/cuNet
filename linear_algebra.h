@@ -96,6 +96,8 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 	//if the column(block) is outside the column width.
 	int col = blockIdx.x;
 	if(col >= M.width){return;}
+	float vector_value = 0.0;
+	float matrix_value = 0.0;
 
 	//for each subset of the vector matrix multiplication of size BLOCK_SIZE
 	for(int thread_group = 0; thread_group < (input.length/BLOCK_SIZE) + 1; thread_group++){
@@ -103,8 +105,8 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 		int row = threadIdx.x + thread_group*BLOCK_SIZE;
 		//if the index is past the length of the vector its component is zero
 		if(row < input.length){
-			float vector_value = getElement(input, row);
-			float matrix_value = getElement(M, row, col);
+			vector_value = getElement(input, row);
+			matrix_value = getElement(M, row, col);
 			reduced_sum[threadIdx.x] = vector_value * matrix_value;
 		}else{
 			//calculate this component of the multiplication
@@ -126,7 +128,9 @@ __global__ void matrixMultiply(vector input, matrix M, vector out){
 __device__ void reduce(float *reduced_sum){
 	for(int i = 2; i <= BLOCK_SIZE; i *= 2){
 		__syncthreads();
-		reduced_sum[threadIdx.x] += reduced_sum[threadIdx.x + BLOCK_SIZE/i];
+		if(threadIdx.x <= (BLOCK_SIZE-1)/i){
+			reduced_sum[threadIdx.x] += reduced_sum[threadIdx.x + BLOCK_SIZE/i];
+		}
 		__syncthreads();
 	}
 }

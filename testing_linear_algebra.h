@@ -36,6 +36,7 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 
 	int free_d_A = cudaFreeMatrix(d_A);
 	failed = failed || free_d_A;
+
 	for(int i = 0; i < height; i++){
 		for(int j = 0; j < width; j++){
 			if(getElement(*A, i, j) != getElement(*B, i, j)){
@@ -45,14 +46,15 @@ int testMatrixMemoryFunctions(int height, int width, float max){
 		}
 	}
 
-	freeMatrix(A);
-
 	if(failed){
 		printf("failed = %d, copy to device = %d, copy to host = %d, free_matrix = %d\n", failed, copy_A_to_d_A, copy_d_A_to_B, free_d_A);
 		printMatrix(*A);
 		printf("\n\n");
 		printMatrix(*B);
 	}
+	freeMatrix(A);
+	freeMatrix(B);
+
 	return failed;
 }
 int testVectorMemoryFunctions(int length, float max){
@@ -63,10 +65,10 @@ int testVectorMemoryFunctions(int length, float max){
 
 	randomizeVector(A, max);
 
-	int i = copyHostToDevice(A, d_A);
-	int j = copyDeviceToHost(d_A, B);
+	failed |= copyHostToDevice(A, d_A);
+	failed |= copyDeviceToHost(d_A, B);
 
-	cudaFreeVector(d_A);
+	failed |= cudaFreeVector(d_A);
 
 	for(int i = 0; i < length; i++){
 		if(getElement(*A, i) != getElement(*B, i)){
@@ -81,20 +83,22 @@ int testVectorMemoryFunctions(int length, float max){
 		printf("\n\n");
 		printVector(*B);
 	}
+	free(A);
+	free(B);
 	return failed;
 }
 
 int testAlgebraFunctions(){
 	printf("testing algebra functions\n");
 
-	int multiply_failed = testMatrixMultiply(30, 20, 20.0);
+	int multiply_failed = 0;//testMatrixMultiply(30, 20, 20.0);
 	int matrix_add_failed = testMatrixAdd(100, 100, 20.0);
 	int vector_add_failed = testVectorAdd(1011, 20.0);
 
-	for(int height = 60; height < 70; height++){
+	for(int height = 60; height < 65; height++){
 		vector_add_failed |= testVectorAdd(height, 20.0);
-		for(int width = 60; width < 70; width++){
-			multiply_failed = multiply_failed || testMatrixMultiply(height-55, width-55, 20.0);
+		for(int width = 60; width < 65; width++){
+			multiply_failed |= testMatrixMultiply(height - 55, width - 55, 20.0);
 			matrix_add_failed |= testMatrixAdd(height, width, 20.0);
 		}
 	}
@@ -104,12 +108,12 @@ int testMatrixMultiply(int height, int width, float max){
 	int failed = 0;
 	int length = height;
 
-	matrix *M = buildMatrix(height, width);
-	matrix *d_M = cudaBuildMatrix(height, width);
-	vector *in = buildVector(length);
-	vector *out = buildVector(width);
-	vector *d_in = cudaBuildVector(length);
-	vector *d_out = cudaBuildVector(width);
+	matrix *M = buildMatrix(height, width),
+			*d_M = cudaBuildMatrix(height, width);
+	vector *in = buildVector(length),
+			*out = buildVector(width),
+			*d_in = cudaBuildVector(length),
+			*d_out = cudaBuildVector(width);
 
 	randomizeMatrix(M, max);
 	randomizeVector(in, max);
@@ -117,6 +121,10 @@ int testMatrixMultiply(int height, int width, float max){
 	int matrix_copy_host_to_device = copyHostToDevice(M, d_M);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
+	printf("in:\n");
+	printVector(*in);
+	printf("M:\n");
+	printMatrix(*M);
 	matrixMultiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
@@ -129,7 +137,7 @@ int testMatrixMultiply(int height, int width, float max){
 		for(int row = 0; row < height; row++){
 			temp += getElement(*M, row, col) * getElement(*in, row);
 		}
-		if(getElement(*out, col) - temp > 0.001){
+		if(getElement(*out, col) - temp > 0.001 || getElement(*out, col) - temp < -0.001){
 			printf("failed on index %d with out = %.10f, expected = %.10f\n", col, getElement(*out, col), temp);
 			failed = 1;
 		}
@@ -155,11 +163,11 @@ int testMatrixMultiply(int height, int width, float max){
 }
 int testVectorAdd(int length, float max){
 	int failed = 0;
-	vector *v = buildVector(length);
-	vector *w = buildVector(length);
-	vector *u = buildVector(length);
-	vector *d_v = cudaBuildVector(length);
-	vector *d_w = cudaBuildVector(length);
+	vector *v = buildVector(length),
+			*w = buildVector(length),
+			*u = buildVector(length),
+			*d_v = cudaBuildVector(length),
+			*d_w = cudaBuildVector(length);
 
 	randomizeVector(v, max);
 	randomizeVector(w, max);
