@@ -1,4 +1,5 @@
 #include "linear_algebra.h"
+#include <unistd.h>
 
 int testMemoryFunctions();
 int testMatrixMemoryFunctions(int height, int width, float max);
@@ -10,15 +11,17 @@ int testMatrixAdd(int height, int width, float max);
 
 
 int testMemoryFunctions(){
-	int matrix_failed = testMatrixMemoryFunctions(10, 11, 20.0);
-	int vector_failed = testVectorMemoryFunctions(5, 20.0);
-	for(int height = 60; height < 100; height++){
-		for(int width = 60; width < 100; width++){
-			matrix_failed |= testMatrixMemoryFunctions(height, width, 20.0);
+	int matrix_failed = 0;
+	int vector_failed = 0;
+	for(int dimentions = 5; dimentions < 70; dimentions++){
+		matrix_failed = testMatrixMemoryFunctions(dimentions, dimentions, 20.0);
+		vector_failed = testVectorMemoryFunctions(dimentions, 20.0);
+		for(int height = 60; height < 100; height++){
+			matrix_failed |= testMatrixMemoryFunctions(height, dimentions, 20.0);
 		}
-	}
-	for(int length = 60; length < 100; length++){
-		vector_failed |= testVectorMemoryFunctions(length, 20.0);
+		for(int length = 60; length < 100; length++){
+			vector_failed |= testVectorMemoryFunctions(length, 20.0);
+		}
 	}
 	return matrix_failed || vector_failed;
 }
@@ -91,20 +94,19 @@ int testVectorMemoryFunctions(int length, float max){
 int testAlgebraFunctions(){
 	printf("testing algebra functions\n");
 
-	int multiply_failed = 0;//testMatrixMultiply(30, 20, 20.0);
+	int multiply_failed = testMatrixMultiply(30, 20, 20.0);
 	int matrix_add_failed = testMatrixAdd(100, 100, 20.0);
 	int vector_add_failed = testVectorAdd(1011, 20.0);
 
-	for(int height = 60; height < 65; height++){
-		vector_add_failed |= testVectorAdd(height, 20.0);
-		for(int width = 60; width < 65; width++){
-			multiply_failed |= testMatrixMultiply(height - 55, width - 55, 20.0);
-			matrix_add_failed |= testMatrixAdd(height, width, 20.0);
-		}
+	for(int dimentions = 60; dimentions < 70; dimentions++){
+		vector_add_failed |= testVectorAdd(dimentions, 20.0);
+		multiply_failed |= testMatrixMultiply(dimentions - 55, dimentions - 55, 20.0);
+		matrix_add_failed |= testMatrixAdd(dimentions, dimentions, 20.0);
 	}
 	return matrix_add_failed || vector_add_failed || multiply_failed;
 }
 int testMatrixMultiply(int height, int width, float max){
+
 	int failed = 0;
 	int length = height;
 
@@ -121,10 +123,10 @@ int testMatrixMultiply(int height, int width, float max){
 	int matrix_copy_host_to_device = copyHostToDevice(M, d_M);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
-	printf("in:\n");
+	/*printf("in:\n");
 	printVector(*in);
 	printf("M:\n");
-	printMatrix(*M);
+	printMatrix(*M);*/
 	matrixMultiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
@@ -145,9 +147,9 @@ int testMatrixMultiply(int height, int width, float max){
 	int free_d_M = cudaFreeMatrix(d_M);
 	int free_d_in = cudaFreeVector(d_in);
 	int free_d_out = cudaFreeVector(d_out);
-
+	sleep(1);
 	if(failed){
-		printf("failed matrix multiply\n");
+		printf("failed matrix multiply\n\n\n\n");
 		printf("in:\n");
 		printVector(*in);
 		printf("M:\n");
