@@ -146,7 +146,7 @@ matrix* buildMatrix(int height, int width){
 	matrix *m = (matrix*)malloc(sizeof(matrix));
 	m->height = height;
 	m->width = width;
-	m->elements = (float*)malloc(sizeof(float)*height*width);
+	m->elements = (float*)calloc(height*width, sizeof(float));
 	return m;
 }
 int copyDeviceToHost(matrix *device, matrix *host){
@@ -183,7 +183,7 @@ void freeMatrix(matrix *host){
 vector* buildVector(int length){
 	vector *v = (vector*)(malloc(sizeof(vector)));
 	v->length = length;
-	v->elements = (float*)(malloc(sizeof(float)*length));
+	v->elements = (float*)calloc(length, sizeof(float));
 	return v;
 }
 vector* cudaBuildVector(int length){
