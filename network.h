@@ -21,6 +21,8 @@ typedef struct{
 network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float));
 network cudaBuildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float));
 void randomizeNetwork(network n, float max_weight, float max_bias);
+int copyHostToDevice(network *host, network *device);
+int copyDeviceToHost(network *device, network *host);
 int runNetwork(network n, vector input, vector *output);
 int calculateLayer(matrix weights, vector biases, vector inputs, vector output, float (*signal)(float));
 __device__ __host__ float getWeight(network n, int layer, int node_from, int node_to);
@@ -162,4 +164,37 @@ void randomizeNetwork(network n, float max_weight, float max_bias){
 		randomizeVector(n.biases[layer], max_bias);
 	}
 	randomizeVector(n.biases[n.number_of_layers - 1], max_bias);
+}
+
+int copyHostToDevice(network *host, network *device){
+	device->number_of_layers = host->number_of_layers;
+	device->signal_function = host->signal_function;
+	device->signal_derivative = host->signal_derivative;
+	int error = cudaMemcpy(device->nodes_in_layer, host->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToDevice);
+	if(error){printf("nodes in layer error = %d\n", error);}
+	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
+		error = 0;
+		error |= copyHostToDevice(host->weights[layer], device->weights[layer]);
+		if(error){printf("weights error %d= %d\n", layer, error);}
+		error = 0;
+		error |= copyHostToDevice(host->biases[layer], device->biases[layer]);
+		if(error){printf("biases error = %d\n", error);}
+	}
+	error = 0;
+	error |= copyHostToDevice(host->biases[host->number_of_layers - 1], device->biases[host->number_of_layers - 1]);
+	if(error){printf("last bias error = %d\n", error);}
+	return error;
+}
+int copyDeviceToHost(network *device, network *host){
+	host->number_of_layers = device->number_of_layers;
+	host->signal_function = device->signal_function;
+	host->signal_derivative = device->signal_derivative;
+	int error = cudaMemcpy(host->nodes_in_layer, device->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyDeviceToHost);
+
+	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
+		error |= copyDeviceToHost(device->weights[layer], host->weights[layer]);
+		error |= copyDeviceToHost(device->biases[layer], host->biases[layer]);
+	}
+	error |= copyDeviceToHost(device->biases[host->number_of_layers - 1], host->biases[host->number_of_layers - 1]);
+	return error;
 }
