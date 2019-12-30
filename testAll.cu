@@ -1,6 +1,6 @@
 #include "testing_linear_algebra.h"
 #include "testing_network.h"
-
+#include "testing_backpropogation.h"
 
 int main(void){
 	srand(time(NULL));
@@ -13,9 +13,12 @@ int main(void){
 	if(!network_fails){
 		printf("testing network.h nominal\n");
 	}
+	int backpropogation_fails = testBackpropogation();
+
+
 
 	if(!fails){
-		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nall systems nominal\n\n");
-	}else{printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nsystems failure\n\n");}
+		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nall systems nominal\n\n");
+	}else{printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nsystems failure\n\n");}
 	return fails;
 }

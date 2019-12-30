@@ -11,6 +11,7 @@ int testCalculateLayer();
 int testRunNetwork(int layers);
 
 
+
 int testBuildNetwork(int layers){
 	int failed = 0;
 	int nodes[layers];
@@ -230,6 +231,7 @@ int testRunNetwork(int layers){
 	if(failed){printf("failed testing runNetwork()\n");}
 	return failed;
 }
+
 
 
 

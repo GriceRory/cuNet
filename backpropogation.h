@@ -101,7 +101,7 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 
 int backpropogate(network *n, vector input, vector expected){
 	int cuda_status = cudaSuccess;
-	vector** node_outputs = calculateNodes(n, input);
+	vector **node_outputs = calculateNodes(n, input);
 	vector **node_derivatives = calculate_node_derivatives(*n, node_outputs, expected);
 	if(cuda_status != cudaSuccess){return cuda_status;}
 	network dn = buildNetwork(n->number_of_layers, n->nodes_in_layer);
