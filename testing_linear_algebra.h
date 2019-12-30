@@ -99,9 +99,9 @@ int testAlgebraFunctions(){
 	int matrix_add_failed = testMatrixAdd(100, 100, 20.0);
 	int vector_add_failed = testVectorAdd(1011, 20.0);
 
-	for(int dimentions = 60; dimentions < 70; dimentions++){
+	for(int dimentions = 62; dimentions < 65; dimentions++){
 		vector_add_failed |= testVectorAdd(dimentions, 20.0);
-		//multiply_failed |= testMatrixMultiply(dimentions, dimentions, 2.0);
+		multiply_failed |= testMatrixMultiply(dimentions, dimentions, 2.0);
 		matrix_add_failed |= testMatrixAdd(dimentions, dimentions, 20.0);
 	}
 	return matrix_add_failed || vector_add_failed || multiply_failed;
@@ -124,10 +124,6 @@ int testMatrixMultiply(int height, int width, float max){
 	int matrix_copy_host_to_device = copyHostToDevice(M, d_M);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
-	/*printf("in:\n");
-	printVector(*in);
-	printf("M:\n");
-	printMatrix(*M);*/
 	matrixMultiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
@@ -245,7 +241,6 @@ int testMatrixAdd(int height, int width, float max){
 
 int testLinearAlgebra(){
 	printf("testing linear_algebra.\n\n");
-	srand(time(NULL));
 	int memory = testMemoryFunctions();
 	int algebra = testAlgebraFunctions();
 	printf("finished testing linear_algebra.h\n\n\n");

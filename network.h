@@ -4,8 +4,8 @@ typedef struct{
 	int *nodes_in_layer;
 	vector **biases;
 	matrix **weights;
-	float (*signal_function)(float);
-	float (*signal_derivative)(float);
+	//float (*signal_function)(float);
+	//float (*signal_derivative)(float);
 }network;
 
 #include <cuda.h>
@@ -18,13 +18,13 @@ typedef struct{
 
 
 //UTIL
-network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float));
-network cudaBuildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float));
+network buildNetwork(int layers, int *nodes_in_layer);
+network cudaBuildNetwork(int layers, int *nodes_in_layer);
 void randomizeNetwork(network n, float max_weight, float max_bias);
 int copyHostToDevice(network *host, network *device);
 int copyDeviceToHost(network *device, network *host);
 int runNetwork(network n, vector input, vector *output);
-int calculateLayer(matrix weights, vector biases, vector inputs, vector output, float (*signal)(float));
+int calculateLayer(matrix weights, vector biases, vector inputs, vector output);
 __device__ __host__ float getWeight(network n, int layer, int node_from, int node_to);
 __device__ __host__ void setWeight(network n, int layer, int node_from, int node_to, float value);
 __device__ __host__ float getBias(network n, int layer, int node);
@@ -33,21 +33,14 @@ __device__ __host__ void setBias(network n, int layer, int node, float value);
 //signal functions and derivative calculators
 __device__ __host__ float sigmoid(float input);
 __device__ __host__ float sigmoid_derivative(float output);
-__global__ void apply_signal_function(vector v, float (*signal_function)(float));
+__global__ void apply_signal_function(vector v);
 
 #include "backpropogation.h"
 
-network buildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float)){
+network buildNetwork(int layers, int *nodes_in_layer){
 	network n;
 	vector *v;
 	matrix *m;
-	if(function == NULL){
-		n.signal_function = &sigmoid;
-		n.signal_derivative = &sigmoid_derivative;
-	}else{
-		n.signal_function = function;
-		n.signal_derivative = derivative;
-	}
 	n.number_of_layers = layers;
 	n.nodes_in_layer = (int *) malloc(sizeof(int)*layers);
 	n.biases = (vector**)malloc(layers*sizeof(vector*));
@@ -73,17 +66,10 @@ void setNetwork(network n, float max_weight, float max_bias){
 	randomizeVector((n.biases[n.number_of_layers - 1]), max_bias);
 }
 
-network cudaBuildNetwork(int layers, int *nodes_in_layer, float (*function)(float), float (*derivative)(float)){
+network cudaBuildNetwork(int layers, int *nodes_in_layer){
 	network n;
 	vector *v;
 	matrix *m;
-	if(function == NULL){
-		n.signal_function = &sigmoid;
-		n.signal_derivative = &sigmoid_derivative;
-	}else{
-		n.signal_function = function;
-		n.signal_derivative = derivative;
-	}
 	n.number_of_layers = layers;
 	n.nodes_in_layer = (int *)malloc(sizeof(int)*layers);
 	n.biases = (vector**)malloc(layers*sizeof(vector*));
@@ -110,7 +96,7 @@ int runNetwork(network n, vector input, vector *output){
 	copyHostToDevice(&input, current_node_values);
 
 	for(int current_layer = 0; current_layer < n.number_of_layers - 1; current_layer++){
-		calculateLayer(*n.weights[current_layer], *n.biases[current_layer], *current_node_values, *next_node_values, n.signal_function);
+		calculateLayer(*n.weights[current_layer], *n.biases[current_layer], *current_node_values, *next_node_values);
 		cudaDeviceSynchronize();
 		sleep(2);
 	}
@@ -120,18 +106,23 @@ int runNetwork(network n, vector input, vector *output){
 
 //given the weights and biases on one layer of a network, as well as a signal function,
 //calculates the next layer
-int calculateLayer(matrix weights, vector biases, vector inputs, vector output, float (*signal)(float)){
+int calculateLayer(matrix weights, vector biases, vector inputs, vector output){
 	int threads_per_block = BLOCK_SIZE;
 	int number_of_blocks = output.length;
 	matrixMultiply<<<threads_per_block, number_of_blocks>>>(inputs, weights, output);
-	cudaDeviceSynchronize();
+	cudaError_t error = cudaDeviceSynchronize();
+	if(error){printf("systems failure on matrix multiply in layer calculation error: %d\n", error);return error;}
+
 	number_of_blocks = (output.length/BLOCK_SIZE) + 1;
 	vectorAdd<<<threads_per_block, number_of_blocks>>>(output, biases);
-	cudaDeviceSynchronize();
-	return_cuda_status
-	apply_signal_function<<<threads_per_block, number_of_blocks>>>(output, signal);
-	cudaDeviceSynchronize();
-	return cudaGetLastError();
+	error = cudaDeviceSynchronize();
+	if(error){printf("systems failure on vector add in layer calculation error: %d\n", error);return error;}
+
+	apply_signal_function<<<threads_per_block, number_of_blocks>>>(output);
+	error = cudaDeviceSynchronize();
+	if(error){printf("error type = %s\n\n", cudaGetErrorString(error));
+		printf("systems failure on signal function in layer calculation error: %d\n", error);return error;}
+	return error;
 }
 
 __device__ __host__ float getWeight(network n, int layer, int node_from, int node_to){
@@ -148,12 +139,12 @@ __device__ __host__ void setBias(network n, int layer, int node, float value){
 }
 
 //signal functions and derivative calculators
-__device__ float sigmoid(float input){return 1/(1+exp(-input));}
-__device__ float sigmoid_derivative(float output){return output*(1-output);}
-__global__ void apply_signal_function(vector v, float (*signal_function)(float)){
+__device__ __host__ float sigmoid(float input){return 1/(1+exp(-input));}
+__device__ __host__ float sigmoid_derivative(float output){return output*(1-output);}
+__global__ void apply_signal_function(vector v){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
 	if(idx < v.length){
-		float value = signal_function(getElement(v, idx));
+		float value = sigmoid(getElement(v, idx));//signal_function(getElement(v, idx));
 		setElement(v, idx, value);
 	}
 }
@@ -168,11 +159,9 @@ void randomizeNetwork(network n, float max_weight, float max_bias){
 
 int copyHostToDevice(network *host, network *device){
 	device->number_of_layers = host->number_of_layers;
-	device->signal_function = host->signal_function;
-	device->signal_derivative = host->signal_derivative;
 	int error = cudaMemcpy(device->nodes_in_layer, host->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToHost);
 	int temp = 0;
-	if(error){printf("nodes in layer error = %d\n", error);}
+	if(error){printf("host to device nodes in layer error = %d\n", error);}
 	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
 		temp = copyHostToDevice(host->weights[layer], device->weights[layer]);
 		error |= temp;
@@ -188,11 +177,9 @@ int copyHostToDevice(network *host, network *device){
 }
 int copyDeviceToHost(network *device, network *host){
 	host->number_of_layers = device->number_of_layers;
-	host->signal_function = device->signal_function;
-	host->signal_derivative = device->signal_derivative;
 	int error = cudaMemcpy(host->nodes_in_layer, device->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToHost);
 	int temp = 0;
-	if(error){printf("nodes in layer error = %d\n", temp);}
+	if(error){printf("device to host nodes in layer error = %d\n", temp);}
 	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
 		temp = copyDeviceToHost(device->weights[layer], host->weights[layer]);
 		error |= temp;

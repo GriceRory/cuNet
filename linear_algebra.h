@@ -47,7 +47,7 @@ vector* buildVector(int length);
 vector* cudaBuildVector(int length);
 int cudaFreeVector(vector *device);
 void freeVector(vector *host);
-void randomizeVector(vector v, float max);
+void randomizeVector(vector *v, float max);
 int copyHostToDevice(vector *host, vector *device);
 int copyDeviceToHost(vector *device, vector *host);
 
@@ -67,7 +67,7 @@ __host__ __device__ float getElement(vector v, int element){
 	if(v.length < element){
 		return 0.0/0.0;
 	}
-	return v.elements[element];
+	return v.elements[element];;
 }
 __host__ __device__ void setElement(vector v, int element, float value){
 	if(v.length < element){

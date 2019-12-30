@@ -7,7 +7,7 @@ int testCudaBuildNetwork(int layers);
 int testRandomizeNetwork(int layers);
 int testCopyToDeviceFunctions(int layers);
 int testCopyToHostFunctions(int layers);
-int testCalculateLayer(int layers);
+int testCalculateLayer();
 int testRunNetwork(int layers);
 
 
@@ -17,7 +17,7 @@ int testBuildNetwork(int layers){
 	for(int i = 0; i < layers; i++){
 		nodes[i] = 10;
 	}
-	network net = buildNetwork(layers, nodes, NULL, NULL);
+	network net = buildNetwork(layers, nodes);
 	for(int layer = 0; layer < layers - 1; layer++){
 		for(int height = 0; height < net.weights[layer]->height; height++){
 			for(int width = 0; width < net.weights[layer]->width; width++){
@@ -44,7 +44,7 @@ int testRandomizeNetwork(int layers){
 		nodes[i] = 10;
 	}
 	float weightMax = 10.0, biasMax = 20.0;
-	network net = buildNetwork(layers, nodes, NULL, NULL);
+	network net = buildNetwork(layers, nodes);
 	randomizeNetwork(net, weightMax, biasMax);
 	for(int layer = 0; layer < layers - 1; layer++){
 		for(int height = 0; height < net.weights[layer]->height; height++){
@@ -71,7 +71,7 @@ int testCudaBuildNetwork(int layers){
 	for(int i = 0; i < layers; i++){
 		nodes[i] = 10;
 	}
-	network net = cudaBuildNetwork(layers, nodes, NULL, NULL);
+	network net = cudaBuildNetwork(layers, nodes);
 	failed |= cudaGetLastError();
 	if(failed){printf("failed testing randomizeNetwork()");}
 	return failed;
@@ -84,9 +84,9 @@ int testCopyToDeviceFunctions(int layers){
 	}
 
 	float weightMax = 10.0, biasMax = 20.0;
-	network net = buildNetwork(layers, nodes, NULL, NULL);
-	network net_copy = buildNetwork(layers, nodes, NULL, NULL);
-	network net_device = cudaBuildNetwork(layers, nodes, NULL, NULL);
+	network net = buildNetwork(layers, nodes);
+	network net_copy = buildNetwork(layers, nodes);
+	network net_device = cudaBuildNetwork(layers, nodes);
 	randomizeNetwork(net, weightMax, biasMax);
 	failed |= copyHostToDevice(&net, &net_device);
 	if(failed != cudaSuccess){printf("cudaError on host to device = %d\n", failed);}
@@ -103,9 +103,9 @@ int testCopyToHostFunctions(int layers){
 		}
 
 		float weightMax = 10.0, biasMax = 20.0;
-		network net = buildNetwork(layers, nodes, NULL, NULL);
-		network net_copy = buildNetwork(layers, nodes, NULL, NULL);
-		network net_device = cudaBuildNetwork(layers, nodes, NULL, NULL);
+		network net = buildNetwork(layers, nodes);
+		network net_copy = buildNetwork(layers, nodes);
+		network net_device = cudaBuildNetwork(layers, nodes);
 		randomizeNetwork(net, weightMax, biasMax);
 		failed |= copyHostToDevice(&net, &net_device);
 		if(failed != cudaSuccess){printf("cudaError on host to device = %d\n", failed);}
@@ -144,32 +144,48 @@ int testCopyToHostFunctions(int layers){
 		if(failed){printf("\n\nfailed testing copyDeviceToHost() and copyHostToDevice() for networks\n");}
 		return failed;
 }
-int testCalculateLayer(int layers){
+int testCalculateLayer(){
 	int failed = 0;
-	int nodes[layers];
-	for(int i = 0; i < layers; i++){
-		nodes[i] = 10;
-	}
+	float weightMax = 0.5, biasMax = 0.5;
+	int height = 10, width = 10;
+	matrix *weights = buildMatrix(height, width);
+	matrix *d_weights = cudaBuildMatrix(height, width);
 
-	float weightMax = 10.0, biasMax = 20.0;
-	network net = buildNetwork(layers, nodes, NULL, NULL);
-	vector *input = buildVector(net.nodes_in_layer[0]);
+	vector *input = buildVector(height),
+			*output = buildVector(width),
+			*biases = buildVector(width),
+			*d_input = cudaBuildVector(height),
+			*d_output = cudaBuildVector(width),
+			*d_biases = cudaBuildVector(width),
+			*output_test = buildVector(width);
+
+	randomizeMatrix(weights, weightMax);
 	randomizeVector(input, biasMax);
-	vector *output = buildVector(net.nodes_in_layer[1]);
-	randomizeNetwork(net, weightMax, biasMax);
-	calculateLayer(*(net.weights[0]), *(net.biases[0]), *input, *output, net.signal_function);
-	for(int col = 0; col < (net.weights[0])->width; col++){
+	randomizeVector(biases, biasMax);
+
+	copyHostToDevice(weights, d_weights);
+	copyHostToDevice(input, d_input);
+	copyHostToDevice(biases, d_biases);
+	copyHostToDevice(output, d_output);
+
+	cudaDeviceSynchronize();
+	calculateLayer(*d_weights, *d_biases, *d_input, *d_output);
+	cudaDeviceSynchronize();
+	copyDeviceToHost(d_output, output_test);
+	cudaDeviceSynchronize();
+
+	for(int col = 0; col < weights->width; col++){
 		float temp = 0.0;
-		for(int row = 0; row < (net.weights[0])->height; row++){
-			temp += getElement(*(net.weights[0]), row, col) * getElement(*input, row);
+		for(int row = 0; row < weights->height; row++){
+			temp += getElement(*weights, row, col) * getElement(*input, row);
 		}
-		temp = (*(net.signal_function))(temp);
-		if(getElement(*output, col) - temp > 1 || getElement(*output, col) - temp < -1){
-			printf("failed on index %d with out = %.10f, expected = %.10f\n", col, getElement(*output, col), temp);
+		temp = sigmoid(temp + getElement(*output_test, col));
+		if(getElement(*output_test, col) - temp > 0.2 || getElement(*output_test, col) - temp < -0.2){
+			printf("failed on index %d with out = %.10f, expected = %.10f\n", col, getElement(*output_test, col), temp);
 			failed = 1;
 		}
 	}
-	if(failed){printf("failed testing calculateLayer()");}
+	if(failed){printf("\n\nfailed testing calculateLayer()");}
 	return failed;
 }
 int testRunNetwork(int layers){
@@ -180,10 +196,10 @@ int testRunNetwork(int layers){
 		nodes[i] = 10;
 	}
 
-	float weightMax = 10.0, biasMax = 20.0;
-	network net = buildNetwork(layers, nodes, NULL, NULL);
+	float weightMax = 0.1, biasMax = 0.2;
+	network net = buildNetwork(layers, nodes);
 	randomizeNetwork(net, weightMax, biasMax);
-	network net_device = cudaBuildNetwork(layers, nodes, NULL, NULL);
+	network net_device = cudaBuildNetwork(layers, nodes);
 	int error = copyHostToDevice(&net, &net_device);
 	if(error != cudaSuccess){printf("error copy host to device = %d\n\n", error);}
 	vector *input = buildVector(net.nodes_in_layer[0]);
@@ -199,7 +215,7 @@ int testRunNetwork(int layers){
 			for(int row = 0; row < (net.weights[0])->height; row++){
 				temp += getElement(*(net.weights[0]), row, col) * getElement(*input, row);
 			}
-			temp = (*(net.signal_function))(temp);
+			temp = sigmoid(temp);
 			setElement(*nextLayer, col, temp);
 		}
 		freeVector(input);
@@ -225,8 +241,8 @@ int testNetwork(){
 	failed |= testRandomizeNetwork(5);
 	failed |= testCopyToDeviceFunctions(5);
 	failed |= testCopyToHostFunctions(5);
-	failed |= testCalculateLayer(5);
-	failed |= testRunNetwork(3);
+	failed |= testCalculateLayer();
+	//failed |= testRunNetwork(3);
 	printf("\nFinished testing network.h\n\n");
 	return failed;
 }
