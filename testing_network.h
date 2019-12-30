@@ -222,7 +222,7 @@ int testRunNetwork(int layers){
 		input = nextLayer;
 	}
 	for(int element = 0; element < output->length; element++){
-		if(!(getElement(*output, element) - getElement(*input, element) < 0.01 && getElement(*output, element) - getElement(*input, element) > -0.01)){
+		if(!(getElement(*output, element) - getElement(*input, element) < 0.1 && getElement(*output, element) - getElement(*input, element) > -0.1)){
 			printf("failed on output element = %d, output = %f, expected = %f\n", element, getElement(*output, element), getElement(*input, element));
 			failed = 1;
 		}
@@ -242,7 +242,7 @@ int testNetwork(){
 	failed |= testCopyToDeviceFunctions(5);
 	failed |= testCopyToHostFunctions(5);
 	failed |= testCalculateLayer();
-	//failed |= testRunNetwork(3);
+	failed |= testRunNetwork(3);
 	printf("\nFinished testing network.h\n\n");
 	return failed;
 }
