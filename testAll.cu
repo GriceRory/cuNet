@@ -9,18 +9,20 @@ int main(void){
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n");
 	}
-	int network_fails = testNetwork();
+	int network_fails = 0;//testNetwork();
 	fails |= network_fails;
 	if(!network_fails){
 		printf("testing network.h nominal\n");
 	}
-	int backpropogation_fails = testBackpropogation();
-	fails |= backpropogation_fails;
-	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n");}
 
 	int database_fails = testingDatabase();
 	fails |= database_fails;
-	if(!backpropogation_fails){printf("testing database.h nominal\n");}
+	if(!database_fails){printf("testing database.h nominal\n");}
+
+
+	int backpropogation_fails = testBackpropogation();
+	fails |= backpropogation_fails;
+	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n");}
 
 	if(!fails){
 		printf("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nall systems nominal\n\n");

@@ -25,6 +25,7 @@ int testCalculateNodeDerivatives(){return 0;}
 
 
 int testBackpropogation(){
+	printf("testing backpropogation\n");
 	int failed = testBackpropogate();
 	failed |= testTrain();
 	failed |= testCalculateNodes();

@@ -190,7 +190,6 @@ int testCalculateLayer(){
 	return failed;
 }
 int testRunNetwork(int layers){
-	printf("\n\n\ntesting run network\n\n\n\n");
 	int failed = 0;
 	int nodes[layers];
 	for(int i = 0; i < layers; i++){
@@ -245,6 +244,6 @@ int testNetwork(){
 	failed |= testCopyToHostFunctions(5);
 	failed |= testCalculateLayer();
 	failed |= testRunNetwork(3);
-	printf("\nFinished testing network.h\n\n");
+	printf("Finished testing network.h\n");
 	return failed;
 }

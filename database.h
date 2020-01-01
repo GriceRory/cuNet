@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+
 typedef struct{
   vector **inputs;
   vector **outputs;
@@ -9,14 +10,34 @@ typedef struct{
 
 
 //memory management
-int buildDatabase(database *db, char *f);
+database* buildDatabase(int size);
+int loadDatabase(database db, char *f);
 int saveDatabase(database *db, char *f);
 void copyHostToDevice(database *host, database *device);
 void copyDeviceToHost(database *device, database *host);
-
+void randomizeDatabase(database db, float maxInput, float maxOutput, int inputLength, int outputLength);
 void readVector(vector *v, int vectorLength, FILE *file_pointer);
 void writeVector(vector *v, FILE *file_pointer);
 int readInt(FILE *file_pointer);
+
+
+database* buildDatabase(int size){
+	database *db = (database*)malloc(sizeof(database));
+	db->size = size;
+	db->inputs = (vector**)malloc(size*sizeof(vector*));
+	db->outputs = (vector**)malloc(size*sizeof(vector*));
+	return db;
+}
+
+void randomizeDatabase(database db, float maxInput, float maxOutput, int inputLength, int outputLength){
+	for(int pair = 0; pair < db.size; ++pair){
+		db.inputs[pair] = buildVector(inputLength);
+		db.outputs[pair] = buildVector(outputLength);
+
+		randomizeVector(db.inputs[pair], maxInput);
+		randomizeVector(db.outputs[pair], maxOutput);
+	}
+}
 
 void readVector(vector *v, int vectorLength, FILE *file_pointer){
 	v->length = vectorLength;
@@ -42,12 +63,22 @@ void writeVector(vector *v, FILE *file_pointer){
 	fprintf(file_pointer, "\n");
 }
 
+int readInt(FILE *file_pointer){
+	int value = 0;
+	char c = fgetc(file_pointer);
+	while(c == '0' || c == '1' || c == '2' ||	c == '3' || c == '4'
+			|| c == '5' || c == '6' || c == '7' || c == '8' || c == '9' ){
+		value *= 10;
+		value += c;
+	}
+	return value;
+}
 
-int buildDataBase(database *db, char *f){
+int buildDatabase(database *db, char *f){
 	FILE *file_pointer = fopen(f, "r");
-	if(file_pointer == NULL){return 0;}
+	if(file_pointer == NULL){return NULL;}
 
-	/*
+
 	db->size = readInt(file_pointer);
 	int input_length = readInt(file_pointer);
 	int output_length = readInt(file_pointer);
@@ -57,9 +88,9 @@ int buildDataBase(database *db, char *f){
 	for(int line = 0; line < db->size; line++){
 		readVector(db->inputs[line], input_length, file_pointer);
 		readVector(db->outputs[line], output_length, file_pointer);
-	}*/
+	}
 	fclose(file_pointer);
-	return 1;
+	return db;
 }
 int saveDatabase(database *db, char *f){
 	FILE *file_pointer = fopen(f, "w");
