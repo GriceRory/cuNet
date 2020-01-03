@@ -12,14 +12,55 @@ int testCalculateNodeDerivatives();
 
 
 
-int testTrain(){return 0;}
-int testBackpropogate(){return 0;}
-int testCalculateNodes(){return 0;}
-int testCalcualteNextDelta(){return 0;}
-int testCalculateNextLayerWeightChanges(){return 0;}
-int testCalculateNextLayerBiasChanges(){return 0;}
-int testCalculateNextLayerNodeDerivatives(){return 0;}
-int testCalculateNodeDerivatives(){return 0;}
+int testTrain(){
+	int failed = 0;
+	return failed;
+}
+int testBackpropogate(){
+	int failed = 0;
+	int layers = 5;
+	float max_weights = 2.0;
+	float max_biases = 1.0;
+
+	int *nodes = (int*)malloc(sizeof(int)*layers);
+	network n = buildNetwork(layers, nodes);
+	vector *input = buildVector(nodes[0]);
+	vector *expected = buildVector(nodes[0]);
+
+	randomizeNetwork(n, max_weights, max_biases);
+	randomizeVector(input, max_biases);
+
+	printf("here\n");
+	failed |= backpropogate(&n, *input, *expected);
+	printf("also here\n");
+
+	free(nodes);
+	return failed;
+}
+int testCalculateNodes(){
+	int failed = 0;
+	return failed;
+}
+int testCalcualteNextDelta(){
+	int failed = 0;
+	return failed;
+}
+int testCalculateNextLayerWeightChanges(){
+	int failed = 0;
+	return failed;
+}
+int testCalculateNextLayerBiasChanges(){
+	int failed = 0;
+	return failed;
+}
+int testCalculateNextLayerNodeDerivatives(){
+	int failed = 0;
+	return failed;
+}
+int testCalculateNodeDerivatives(){
+	int failed = 0;
+	return failed;
+}
 
 
 

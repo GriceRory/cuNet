@@ -11,7 +11,7 @@ typedef struct{
 
 //memory management
 database* buildDatabase(int size);
-int loadDatabase(database db, char *f);
+int readDatabase(database db, char *f);
 int saveDatabase(database *db, char *f);
 void copyHostToDevice(database *host, database *device);
 void copyDeviceToHost(database *device, database *host);
@@ -74,10 +74,10 @@ int readInt(FILE *file_pointer){
 	return value;
 }
 
-int buildDatabase(database *db, char *f){
+int readDatabase(database *db, char *f){
+	int failed = 0;
 	FILE *file_pointer = fopen(f, "r");
-	if(file_pointer == NULL){return NULL;}
-
+	if(file_pointer == NULL){return 1;}
 
 	db->size = readInt(file_pointer);
 	int input_length = readInt(file_pointer);
@@ -90,7 +90,7 @@ int buildDatabase(database *db, char *f){
 		readVector(db->outputs[line], output_length, file_pointer);
 	}
 	fclose(file_pointer);
-	return db;
+	return failed;
 }
 int saveDatabase(database *db, char *f){
 	FILE *file_pointer = fopen(f, "w");
@@ -105,20 +105,20 @@ int saveDatabase(database *db, char *f){
 }
 void copyHostToDevice(database *host, database *device){
 	device->size = host->size;
-	cudaMalloc(&device->inputs, sizeof(void *)*host->size);
-	cudaMalloc(&device->outputs, sizeof(void *)*host->size);
-	for(int inputOutputPair = 0; inputOutputPair < host->size; inputOutputPair++){
-		copyDeviceToHost(host->inputs[inputOutputPair], device->inputs[inputOutputPair]);
-		copyDeviceToHost(host->outputs[inputOutputPair], device->outputs[inputOutputPair]);
+	for(int pair = 0; pair < host->size; pair++){
+		device->inputs[pair] = cudaBuildVector(host->inputs[pair]->length);
+		device->outputs[pair] = cudaBuildVector(host->outputs[pair]->length);
+		copyHostToDevice(host->inputs[pair], device->inputs[pair]);
+		copyHostToDevice(host->outputs[pair], device->outputs[pair]);
 	}
 }
 void copyDeviceToHost(database *device, database *host){
 	host->size = device->size;
 	//copying these pointers is utterly meaningless
-	cudaMalloc(&host->inputs, sizeof(void *)*device->size);
-	cudaMalloc(&host->outputs, sizeof(void *)*device->size);
-	for(int inputOutputPair = 0; inputOutputPair < host->size; inputOutputPair++){
-		copyDeviceToHost(device->inputs[inputOutputPair], host->inputs[inputOutputPair]);
-		copyDeviceToHost(device->outputs[inputOutputPair], host->outputs[inputOutputPair]);
+	for(int pair = 0; pair < host->size; pair++){
+		host->inputs[pair] = buildVector(device->inputs[pair]->length);
+		host->outputs[pair] = buildVector(device->outputs[pair]->length);
+		copyDeviceToHost(device->inputs[pair], host->inputs[pair]);
+		copyDeviceToHost(device->outputs[pair], host->outputs[pair]);
 	}
 }

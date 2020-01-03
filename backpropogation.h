@@ -101,7 +101,9 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 
 int backpropogate(network *n, vector input, vector expected){
 	int cuda_status = cudaSuccess;
+	printf("makes it here\n");
 	vector **node_outputs = calculateNodes(n, input);
+	printf("does not make it here\n");
 	vector **node_derivatives = calculate_node_derivatives(*n, node_outputs, expected);
 	if(cuda_status != cudaSuccess){return cuda_status;}
 	network dn = buildNetwork(n->number_of_layers, n->nodes_in_layer);
@@ -114,11 +116,11 @@ int backpropogate(network *n, vector input, vector expected){
 		calculate_next_layer_weight_changes<<<threadsPerBlock, blocks>>>(dn, layer, *node_outputs[layer], *node_derivatives[layer]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
-	return cudaSuccess;
+	return cuda_status;
 }
 
 vector** calculateNodes(network *n, vector input){
-	vector** node_outputs;
+	vector** node_outputs = (vector**)malloc(sizeof(vector*)*n->number_of_layers);
 
 	for(int layer = 0; layer < n->number_of_layers; layer++){
 		vector *current_node_values = cudaBuildVector(n->nodes_in_layer[layer]);
