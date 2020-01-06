@@ -7,8 +7,8 @@ int main(void){
 	srand(time(NULL));
 	int fails = 0;
 
-	/*
-	fails = testLinearAlgebra();
+
+	fails = 0;//testLinearAlgebra();
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n");
 	}
@@ -16,9 +16,9 @@ int main(void){
 	fails |= network_fails;
 	if(!network_fails){
 		printf("testing network.h nominal\n");
-	}*/
+	}
 
-	int database_fails = testingDatabase();
+	int database_fails = 0;//testingDatabase();
 	fails |= database_fails;
 	if(!database_fails){printf("testing database.h nominal\n");}
 

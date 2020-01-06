@@ -30,7 +30,6 @@ int testBackpropogate(){
 	randomizeNetwork(n, max_weights, max_biases);
 	randomizeVector(input, max_biases);
 
-	printf("here\n");
 	failed |= backpropogate(&n, *input, *expected);
 	printf("also here\n");
 
