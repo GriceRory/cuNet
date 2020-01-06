@@ -76,25 +76,34 @@ __global__ void calculate_next_layer_node_derivatves(network n, int layer, vecto
 }
 
 vector** calculate_node_derivatives(network n, vector **node_outputs, vector expected_output){
+
 	vector **node_derivatives = (vector**)malloc(sizeof(vector*)*n.number_of_layers);
 	//calculation for the node derivatives in the last layer is simple.
 	vector *last_layer_derivative_host = buildVector(n.nodes_in_layer[n.number_of_layers-1]);
 	vector *LastLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);
+
+	vector *last_layer_outputs = buildVector(n.nodes_in_layer[n.number_of_layers-1]);
+	copyDeviceToHost(node_outputs[n.number_of_layers - 1], last_layer_outputs);
+
 	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is faster on CPU than transferring to a GPU
-		float value = 2*(getElement(*node_outputs[n.number_of_layers - 1], node) - getElement(expected_output, node));
+		float value = 2*(getElement(*last_layer_outputs, node) - getElement(expected_output, node));
 		setElement(*last_layer_derivative_host, node, value);
 	}
+
 	copyHostToDevice(last_layer_derivative_host, LastLayerDerivative);
 	node_derivatives[n.number_of_layers - 1] = LastLayerDerivative;
+
 	//calculates each layer then checks for cuda errors.
-	printf("layers: %d\n", n.number_of_layers);
 	for(int layer = n.number_of_layers - 2; layer >= 0; layer--){
-		printf("\n\nhere too %d\n\n", layer);
-		int nodes_in_this_layer = n.nodes_in_layer[n.number_of_layers-1];
+		int nodes_in_this_layer = n.nodes_in_layer[layer];
+		int nodes_next_layer = n.nodes_in_layer[layer - 1];
 		vector *thisLayerDerivative = cudaBuildVector(nodes_in_this_layer);
+		vector *next_layer_derivative = cudaBuildVector(nodes_next_layer);
 		node_derivatives[n.number_of_layers - 1] = thisLayerDerivative;
 		int threadsPerBlock = n.nodes_in_layer[layer];
 		int blocks = n.nodes_in_layer[layer + 1];
+		node_derivatives[layer] = cudaBuildVector(n.nodes_in_layer[layer]);
+		cudaDeviceSynchronize();
 		calculate_next_layer_node_derivatves<<<threadsPerBlock, blocks>>>(n, layer, *node_outputs[layer], *node_derivatives[layer + 1], *node_derivatives[layer]);
 	}
 	return node_derivatives;

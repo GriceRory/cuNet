@@ -27,13 +27,15 @@ int testBackpropogate(){
 	for(int layer = 0; layer < layers; layer++){nodes[layer] = 10;}
 
 	network n = buildNetwork(layers, nodes);
+	network d_n = cudaBuildNetwork(layers, nodes);
 	vector *input = buildVector(nodes[0]);
 	vector *expected = buildVector(nodes[0]);
 
 	randomizeNetwork(n, max_weights, max_biases);
 	randomizeVector(input, max_biases);
+	copyHostToDevice(&n, &d_n);
 
-	failed |= backpropogate(&n, *input, *expected);
+	failed |= backpropogate(&d_n, *input, *expected);
 	printf("also here\n");
 
 	free(nodes);
