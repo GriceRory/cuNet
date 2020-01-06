@@ -76,25 +76,22 @@ __global__ void calculate_next_layer_node_derivatves(network n, int layer, vecto
 }
 
 vector** calculate_node_derivatives(network n, vector **node_outputs, vector expected_output){
-
 	vector **node_derivatives = (vector**)malloc(sizeof(vector*)*n.number_of_layers);
-	printf("here too");
 	//calculation for the node derivatives in the last layer is simple.
 	vector *last_layer_derivative_host = buildVector(n.nodes_in_layer[n.number_of_layers-1]);
-
 	vector *LastLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);
-
-
-	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is probably faster on CPU than transferring to a GPU
+	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is faster on CPU than transferring to a GPU
 		float value = 2*(getElement(*node_outputs[n.number_of_layers - 1], node) - getElement(expected_output, node));
 		setElement(*last_layer_derivative_host, node, value);
 	}
 	copyHostToDevice(last_layer_derivative_host, LastLayerDerivative);
 	node_derivatives[n.number_of_layers - 1] = LastLayerDerivative;
-
 	//calculates each layer then checks for cuda errors.
+	printf("layers: %d\n", n.number_of_layers);
 	for(int layer = n.number_of_layers - 2; layer >= 0; layer--){
-		vector *thisLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);
+		printf("\n\nhere too %d\n\n", layer);
+		int nodes_in_this_layer = n.nodes_in_layer[n.number_of_layers-1];
+		vector *thisLayerDerivative = cudaBuildVector(nodes_in_this_layer);
 		node_derivatives[n.number_of_layers - 1] = thisLayerDerivative;
 		int threadsPerBlock = n.nodes_in_layer[layer];
 		int blocks = n.nodes_in_layer[layer + 1];
@@ -108,7 +105,7 @@ int backpropogate(network *n, vector input, vector expected){
 	vector **node_outputs = calculateNodes(n, input);
 	printf("does not make it here\n");
 	vector **node_derivatives = calculate_node_derivatives(*n, node_outputs, expected);
-	printf("what aboiut here?\n");
+	printf("what about here?\n");
 	if(cuda_status != cudaSuccess){return cuda_status;}
 	network dn = buildNetwork(n->number_of_layers, n->nodes_in_layer);
 	for(int layer = n->number_of_layers - 1; layer <= 0; --layer){
@@ -125,12 +122,14 @@ int backpropogate(network *n, vector input, vector expected){
 
 vector** calculateNodes(network *n, vector input){
 	vector** node_outputs = (vector**)malloc(sizeof(vector*)*n->number_of_layers);
-	printf("makes it here\n");
-	node_outputs[0] = &input;
+	vector *input_device = cudaBuildVector(input.length);
+	copyHostToDevice(&input, input_device);
+	node_outputs[0] = input_device;
 	for(int layer = 0; layer < n->number_of_layers - 1; layer++){
 		vector *current_node_values = node_outputs[layer];
 		node_outputs[layer] = current_node_values;
 		vector *next_node_values = cudaBuildVector(n->nodes_in_layer[layer+1]);
+		//printMatrix(*(n->weights[layer]));
 		calculateLayer(*(n->weights[layer]), *(n->biases[layer]), *current_node_values, *next_node_values);
 		node_outputs[layer + 1] = next_node_values;
 	}

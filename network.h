@@ -111,17 +111,17 @@ int calculateLayer(matrix weights, vector biases, vector inputs, vector output){
 	int number_of_blocks = output.length;
 	matrixMultiply<<<threads_per_block, number_of_blocks>>>(inputs, weights, output);
 	cudaError_t error = cudaDeviceSynchronize();
-	if(error){printf("systems failure on matrix multiply in layer calculation error: %d\n", error);return error;}
+	if(error){printf("systems failure on matrix multiply in calculateLayer calculation error: %d\n", error);return error;}
 
 	number_of_blocks = (output.length/BLOCK_SIZE) + 1;
 	vectorAdd<<<threads_per_block, number_of_blocks>>>(output, biases);
 	error = cudaDeviceSynchronize();
-	if(error){printf("systems failure on vector add in layer calculation error: %d\n", error);return error;}
+	if(error){printf("systems failure on vector add in calculateLayer calculation error: %d\n", error);return error;}
 
 	apply_signal_function<<<threads_per_block, number_of_blocks>>>(output);
 	error = cudaDeviceSynchronize();
 	if(error){printf("error type = %s\n\n", cudaGetErrorString(error));
-		printf("systems failure on signal function in layer calculation error: %d\n", error);return error;}
+		printf("systems failure on signal function in calculateLayer calculation error: %d\n", error);return error;}
 	return error;
 }
 

@@ -23,6 +23,9 @@ int testBackpropogate(){
 	float max_biases = 1.0;
 
 	int *nodes = (int*)malloc(sizeof(int)*layers);
+
+	for(int layer = 0; layer < layers; layer++){nodes[layer] = 10;}
+
 	network n = buildNetwork(layers, nodes);
 	vector *input = buildVector(nodes[0]);
 	vector *expected = buildVector(nodes[0]);
