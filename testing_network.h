@@ -210,11 +210,12 @@ int testRunNetwork(int layers){
 
 	for(int layer = 0; layer < layers - 1; layer++){
 		vector *nextLayer = buildVector(net.nodes_in_layer[layer+1]);
-		for(int col = 0; col < (net.weights[0])->width; col++){
+		for(int col = 0; col < (net.weights[layer])->width; col++){
 			float temp = 0.0;
-			for(int row = 0; row < (net.weights[0])->height; row++){
-				temp += getElement(*(net.weights[0]), row, col) * getElement(*input, row);
+			for(int row = 0; row < (net.weights[layer])->height; row++){
+				temp += getElement(*(net.weights[layer]), row, col) * getElement(*input, row);
 			}
+			temp += getElement(*(net.biases[layer]), col);
 			temp = sigmoid(temp);
 			setElement(*nextLayer, col, temp);
 		}

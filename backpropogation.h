@@ -71,10 +71,9 @@ __global__ void calculate_next_layer_node_derivatves(network n, int layer, vecto
 	node_derivative_components[nodeFrom] = dE_by_dNodeOutputNextLayer *
 			dNodeOutputNextLayer_by_dNodeInputNextLayer *
 			dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
-	//and then calculate the derivative by computing their sum
-	for(int i = 2; i < BLOCK_SIZE; i *= 2){
-		reduce(node_derivative_components);
-	}
+
+	reduce(node_derivative_components);
+
 	setElement(node_derivatives_this_layer, nodeTo, node_derivative_components[0]);
 }
 
@@ -88,6 +87,8 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 	vector *expected_output_host = buildVector(expected_output.length);
 	copyDeviceToHost(&expected_output, expected_output_host);
 	copyDeviceToHost(node_outputs[n.number_of_layers - 1], last_layer_outputs);
+	printf("this is confusing %d, %d\n", n.nodes_in_layer[n.number_of_layers-1], last_layer_outputs->length);
+	printVector(*last_layer_outputs);
 	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is faster on CPU than transferring to a GPU
 		float value = 2*(getElement(*last_layer_outputs, node) - getElement(*expected_output_host, node));
 		setElement(*last_layer_derivative_host, node, value);

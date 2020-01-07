@@ -8,6 +8,21 @@ int testCalculateNextLayerNodeDerivatives();
 int testCalculateNodeDerivatives();
 
 
+int layers = 5;
+float max_weights = 2.0;
+float max_biases = 1.0;
+
+int *nodes = (int*)malloc(sizeof(int)*layers);
+
+
+
+network net;
+network d_net;
+vector *input;
+vector *expected;
+vector *d_input;
+vector *d_expected;
+vector **node_outputs;
 
 int testTrain(){
 	int failed = 0;
@@ -15,25 +30,9 @@ int testTrain(){
 }
 int testBackpropogate(){
 	int failed = 0;
-	int layers = 5;
-	float max_weights = 2.0;
-	float max_biases = 1.0;
-
-	int *nodes = (int*)malloc(sizeof(int)*layers);
-
-	for(int layer = 0; layer < layers; layer++){nodes[layer] = 10;}
-
-	network n = buildNetwork(layers, nodes);
-	network d_n = cudaBuildNetwork(layers, nodes);
-	vector *input = buildVector(nodes[0]);
-	vector *expected = buildVector(nodes[0]);
-
-	randomizeNetwork(n, max_weights, max_biases);
-	randomizeVector(input, max_biases);
-	copyHostToDevice(&n, &d_n);
-
+	printf("testing backpropogate\n\n");
 	network weight_and_bias_changes = cudaBuildNetwork(layers, nodes);
-	failed |= backpropogate(&d_n, &weight_and_bias_changes, *input, *expected);
+	failed |= backpropogate(&d_net, &weight_and_bias_changes, *input, *expected);
 
 	network weight_and_bias_changes_host = buildNetwork(layers, nodes);
 	for(int layer = 0; layer < layers; layer++){
@@ -48,26 +47,8 @@ int testBackpropogate(){
 }
 int testCalculateNodes(){
 	int failed = 0;
-	int layers = 5;
-	float biasMax = 1.0;
-	float weightMax = 1.0;
-
-	int *nodes = (int*)malloc(sizeof(int)*layers);
-
-	for(int layer = 0; layer < layers; layer++){nodes[layer] = 10;}
-
-	network net = buildNetwork(layers, nodes);
-	network d_n = cudaBuildNetwork(layers, nodes);
-	vector *input = buildVector(nodes[0]);
-	vector *d_input = cudaBuildVector(nodes[0]);
-
-	randomizeVector(input, biasMax);
-	randomizeNetwork(net, weightMax, biasMax);
-
-	copyHostToDevice(&net, &d_n);
-	copyHostToDevice(input, d_input);
-
-	vector **node_outputs = calculateNodes(&d_n, *input);
+	printf("testing calculateNodes()\n\n");
+	node_outputs = calculateNodes(&d_net, *input);
 
 	vector **node_outputs_host = (vector**)malloc(sizeof(vector*)*net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
@@ -76,26 +57,36 @@ int testCalculateNodes(){
 		node_outputs_host[layer] = temp;
 	}
 
+	vector *temp_vector = buildVector(input->length);
+	for(int element = 0; element < input->length; element++){
+		setElement(*temp_vector, element, getElement(*input, element));
+	}
 
-	for(int layer = 0; layer < layers - 1; layer++){
+	for(int layer = 0; layer < layers; layer++){
 		vector *nextLayer = buildVector(net.nodes_in_layer[layer+1]);
 		for(int col = 0; col < (net.weights[0])->width; col++){
 			float temp = 0.0;
 			for(int row = 0; row < (net.weights[0])->height; row++){
-				temp += getElement(*(net.weights[0]), row, col) * getElement(*input, row);
+				temp += getElement(*(net.weights[0]), row, col) * getElement(*temp_vector, row);
 			}
+			temp += getElement(*(net.biases[layer]), col);
 			temp = sigmoid(temp);
 			setElement(*nextLayer, col, temp);
 		}
 		for(int element = 0; element < nextLayer->length; element++){
-			if(!(getElement(*node_outputs_host[layer], element) - getElement(*input, element) < 0.9 && getElement(*node_outputs_host[layer], element) - getElement(*input, element) > -0.9)){
-				printf("failed in layer %d on output element = %d, output = %f, expected = %f\n", layer, element, getElement(*node_outputs_host[layer], element), getElement(*input, element));
+			if(!(getElement(*node_outputs_host[layer], element) - getElement(*temp_vector, element) < 0.9 && getElement(*node_outputs_host[layer], element) - getElement(*temp_vector, element) > -0.9)){
+				printf("failed in layer %d on output element = %d, output = %f, expected = %f\n", layer, element, getElement(*node_outputs_host[layer], element), getElement(*temp_vector, element));
 				failed = 1;
 			}
 		}
-		freeVector(input);
-		input = nextLayer;
+		temp_vector = nextLayer;
 	}
+	for(int layer = 0; layer < layers; layer++){
+		cudaFreeVector(node_outputs[layer]);
+		freeVector(node_outputs_host[layer]);
+	}
+	free(node_outputs);
+	free(node_outputs_host);
 	return failed;
 }
 int testCalculateNextLayerWeightChanges(){
@@ -108,42 +99,29 @@ int testCalculateNextLayerBiasChanges(){
 }
 int testCalculateNextLayerNodeDerivatives(){
 	int failed = 0;
+	printf("testing calculateNextLayerNodeDerivatives()\n\n");
+	//vector **node_outputs = calculateNodes(&d_net, *d_input);
+
+	int threadsPerBlock = net.nodes_in_layer[layers - 3];
+	int blocks = net.nodes_in_layer[layers - 2];
+
+	vector *node_derivatives_next_layer = cudaBuildVector(net.nodes_in_layer[layers-2]);
+	vector *node_derivatives_this_layer = cudaBuildVector(net.nodes_in_layer[layers-3]);
+	calculate_next_layer_node_derivatves<<<threadsPerBlock, blocks>>>(net, layers - 1,  *(node_outputs[layers-1]), *node_derivatives_next_layer, *node_derivatives_this_layer);
+
+
+
+	failed |= cudaDeviceSynchronize();
+
 	return failed;
 }
 int testCalculateNodeDerivatives(){
+	printf("testing calculateNodeDerivatives()\n\n");
 	int failed = 0;
-	int layers = 10;
-	float biasMax = 1.0;
-	float weightMax = 1.0;
-
-	int *nodes = (int*)malloc(sizeof(int)*10);
-	for(int layer = 0; layer < layers; layer++){
-		nodes[layer] = 10;
-	}
-
-	network net = buildNetwork(layers, nodes);
-	vector *input = buildVector(nodes[0]);
-	vector *output = buildVector(nodes[layers-1]);
-
-	network device_net = cudaBuildNetwork(layers, nodes);
-	vector *device_input = cudaBuildVector(nodes[0]);
-	vector *device_output = cudaBuildVector(nodes[layers-1]);
-
-	randomizeNetwork(net, weightMax, biasMax);
-	randomizeVector(input, biasMax);
-	randomizeVector(output, biasMax);
-
-	copyHostToDevice(&net, &device_net);
-	copyHostToDevice(input, device_input);
-	copyHostToDevice(output, device_output);
-
-
-	vector **node_outputs = calculateNodes(&device_net, *device_input);
-	vector **node_derivatives = calculate_node_derivatives(device_net, node_outputs, *device_output);
-
-	node_derivatives = calculate_node_derivatives(device_net, node_outputs, *device_output);
-
 	vector *temp = buildVector(10);
+
+	vector **node_derivatives = calculate_node_derivatives(d_net, node_outputs, *d_expected);
+
 	for(int layer = 0; layer < layers; layer++){
 		copyDeviceToHost(node_derivatives[layer], temp);
 		printVector(*temp);
@@ -157,6 +135,23 @@ int testCalculateNodeDerivatives(){
 
 int testBackpropogation(){
 	printf("testing backpropogation\n");
+	//initializes global variables for testing
+	for(int layer = 0; layer < layers; layer++){nodes[layer] = 10;}
+	net = buildNetwork(layers, nodes);
+	d_net = cudaBuildNetwork(layers, nodes);
+	input = buildVector(nodes[0]);
+	expected = buildVector(nodes[layers - 1]);
+	d_input = cudaBuildVector(nodes[0]);
+	d_expected = cudaBuildVector(nodes[layers - 1]);
+
+	randomizeNetwork(net, max_weights, max_biases);
+	randomizeVector(input, max_biases);
+	randomizeVector(expected, max_biases);
+
+	copyHostToDevice(&net, &d_net);
+	copyHostToDevice(input, d_input);
+	copyHostToDevice(expected, d_expected);
+
 	int failed = 0;//testBackpropogate();
 	failed |= testTrain();
 	failed |= testCalculateNodes();
