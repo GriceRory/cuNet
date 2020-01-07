@@ -2,7 +2,7 @@
 
 
 void train(network *n, database db);//returns current cudaStatus
-int backpropogate(network *n, vector input, vector expected);//returns current cudaStatus
+int backpropogate(network *n, network *d_n, vector input, vector expected);//returns current cudaStatus
 vector** calculateNodes(network *n, vector input);
 
 //training functions
@@ -15,9 +15,13 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 
 
 void train(network *n, database *sample){
+	network weight_and_bias_changes = buildNetwork(n->number_of_layers, n->nodes_in_layer);
 	for(int i = 0; i < sample->size; i++){
-		backpropogate(n, *(sample->inputs[i]), *(sample->outputs[i]));
+		network weight_and_bias_changes_sample = buildNetwork(n->number_of_layers, n->nodes_in_layer);
+		backpropogate(n, &weight_and_bias_changes_sample, *(sample->inputs[i]), *(sample->outputs[i]));
+		apply_deltas(&weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
+	apply_deltas(n, weight_and_bias_changes);
 }
 
 void apply_deltas(network *n, network dn){
@@ -109,21 +113,18 @@ vector** calculate_node_derivatives(network n, vector **node_outputs, vector exp
 	return node_derivatives;
 }
 
-int backpropogate(network *n, vector input, vector expected){
+int backpropogate(network *n, network *d_n, vector input, vector expected){
 	int cuda_status = cudaSuccess;
 	vector **node_outputs = calculateNodes(n, input);
-	printf("does not make it here\n");
 	vector **node_derivatives = calculate_node_derivatives(*n, node_outputs, expected);
-	printf("what about here?\n");
 	if(cuda_status != cudaSuccess){return cuda_status;}
-	network dn = buildNetwork(n->number_of_layers, n->nodes_in_layer);
-	for(int layer = n->number_of_layers - 1; layer <= 0; --layer){
+	for(int layer = n->number_of_layers - 2; layer >= 0; --layer){
 		int threadsPerBlock = BLOCK_SIZE;
 		int blocks = BLOCK_SIZE / node_outputs[layer+1]->length + 1;
-		calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(dn, layer, *node_outputs[layer+1], *node_derivatives[layer+1]);
+		calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(*d_n, layer, *node_outputs[layer+1], *node_derivatives[layer+1]);
 		threadsPerBlock = node_outputs[layer]->length;
-		blocks = node_outputs[layer+1]->length;;
-		calculate_next_layer_weight_changes<<<threadsPerBlock, blocks>>>(dn, layer, *node_outputs[layer], *node_derivatives[layer]);
+		blocks = node_outputs[layer+1]->length;
+		calculate_next_layer_weight_changes<<<threadsPerBlock, blocks>>>(*d_n, layer, *node_outputs[layer], *node_derivatives[layer]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
 	return cuda_status;
@@ -138,7 +139,6 @@ vector** calculateNodes(network *n, vector input){
 		vector *current_node_values = node_outputs[layer];
 		node_outputs[layer] = current_node_values;
 		vector *next_node_values = cudaBuildVector(n->nodes_in_layer[layer+1]);
-		//printMatrix(*(n->weights[layer]));
 		calculateLayer(*(n->weights[layer]), *(n->biases[layer]), *current_node_values, *next_node_values);
 		node_outputs[layer + 1] = next_node_values;
 	}

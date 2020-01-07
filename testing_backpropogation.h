@@ -1,5 +1,3 @@
-
-
 int testBackpropogation();
 int testTrain();
 int testBackpropogate();
@@ -35,8 +33,16 @@ int testBackpropogate(){
 	randomizeVector(input, max_biases);
 	copyHostToDevice(&n, &d_n);
 
-	failed |= backpropogate(&d_n, *input, *expected);
-	printf("also here\n");
+	network weight_and_bias_changes = cudaBuildNetwork(layers, nodes);
+	failed |= backpropogate(&d_n, &weight_and_bias_changes, *input, *expected);
+
+	network weight_and_bias_changes_host = buildNetwork(layers, nodes);
+	for(int layer = 0; layer < layers; layer++){
+		printf("layer %d\nbiases\n", layer);
+		printVector(*weight_and_bias_changes_host.biases[layer]);
+		printf("weights\n");
+		printMatrix(*weight_and_bias_changes_host.weights[layer]);
+	}
 
 	free(nodes);
 	return failed;
