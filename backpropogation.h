@@ -6,7 +6,6 @@ int backpropogate(network *n, network *d_n, vector input, vector expected);//ret
 vector** calculateNodes(network *n, vector input);
 
 //training functions
-int calculate_next_delta(network n, network dn, float *node_outputs);//returns current cudaStatus
 void apply_deltas(network *n, network dn);//returns current cudaStatus
 __global__ void calculate_next_layer_weight_changes(network dn, int layer, vector node_outputs, vector node_derivatives);
 __global__ void calculate_next_layer_bias_changes(network dn, int layer, vector node_outputs, vector node_derivatives);
@@ -80,20 +79,19 @@ __global__ void calculate_next_layer_node_derivatves(network n, int layer, vecto
 }
 
 vector** calculate_node_derivatives(network n, vector **node_outputs, vector expected_output){
-
 	vector **node_derivatives = (vector**)malloc(sizeof(vector*)*n.number_of_layers);
 	//calculation for the node derivatives in the last layer is simple.
 	vector *last_layer_derivative_host = buildVector(n.nodes_in_layer[n.number_of_layers-1]);
 	vector *LastLayerDerivative = cudaBuildVector(n.nodes_in_layer[n.number_of_layers-1]);
 
 	vector *last_layer_outputs = buildVector(n.nodes_in_layer[n.number_of_layers-1]);
+	vector *expected_output_host = buildVector(expected_output.length);
+	copyDeviceToHost(&expected_output, expected_output_host);
 	copyDeviceToHost(node_outputs[n.number_of_layers - 1], last_layer_outputs);
-
 	for(int node = 0; node < n.nodes_in_layer[n.number_of_layers-1]; node++){//this is faster on CPU than transferring to a GPU
-		float value = 2*(getElement(*last_layer_outputs, node) - getElement(expected_output, node));
+		float value = 2*(getElement(*last_layer_outputs, node) - getElement(*expected_output_host, node));
 		setElement(*last_layer_derivative_host, node, value);
 	}
-
 	copyHostToDevice(last_layer_derivative_host, LastLayerDerivative);
 	node_derivatives[n.number_of_layers - 1] = LastLayerDerivative;
 
