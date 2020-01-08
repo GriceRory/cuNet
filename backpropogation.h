@@ -13,14 +13,14 @@ __global__ void calculate_next_layer_node_derivatves(network d_net, int layer, v
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector d_expected_output);//returns current cudaStatus
 
 
-void train(network *n, database *sample){
-	network weight_and_bias_changes = build_network(n->number_of_layers, n->nodes_in_layer);
+void train(network *d_net, database *sample){
+	network weight_and_bias_changes = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	for(int i = 0; i < sample->size; i++){
-		network weight_and_bias_changes_sample = build_network(n->number_of_layers, n->nodes_in_layer);
-		backpropogate(n, &weight_and_bias_changes_sample, *(sample->inputs[i]), sample->outputs[i]);
+		network weight_and_bias_changes_sample = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
+		backpropogate(d_net, &weight_and_bias_changes_sample, *(sample->inputs[i]), sample->outputs[i]);
 		apply_deltas(&weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
-	apply_deltas(n, weight_and_bias_changes);
+	apply_deltas(d_net, weight_and_bias_changes);
 }
 
 void apply_deltas(network *d_net, network d_change){
@@ -49,22 +49,23 @@ __global__ void calculate_next_layer_weight_changes(network d_net, int layer, ve
 	set_element(*d_net.weights[layer], i, j, weight_change);
 }
 
-__global__ void calculate_next_layer_bias_changes(network n, int layer, vector d_node_outputs, vector d_node_derivatives){
+__global__ void calculate_next_layer_bias_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives){
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	float dE_by_bNodeOutputNextLayer = get_element(d_node_derivatives, idx);
 	float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid(get_element(d_node_outputs, idx));
 	//dNodeInputNextLayer/dBias = 1, and using the chain rule here;
 	float biasDelta = dE_by_bNodeOutputNextLayer * dNodeOutputNextLayer_by_dNodeInputNextLayer;
-	set_element(*(n.biases[layer]), idx, biasDelta);
+	set_element(*(d_net.biases[layer]), idx, biasDelta);
 }
 
 __global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer){
 	int nodeFrom = threadIdx.x;
 	int nodeTo = blockIdx.x;
+
 	__shared__ float node_derivative_components[BLOCK_SIZE];
 	float dE_by_dNodeOutputNextLayer = get_element(d_node_derivatives_next_layer, nodeFrom);
 	float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid(get_element(d_node_outputs, nodeFrom));
-	float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = get_element(*(d_net.weights[layer]), nodeFrom, nodeTo);
+	float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = 1;//get_element(*(d_net.weights[layer]), nodeFrom, nodeTo);
 	//the chain rule lets us calculate each component
 	node_derivative_components[nodeFrom] = dE_by_dNodeOutputNextLayer *
 			dNodeOutputNextLayer_by_dNodeInputNextLayer *
@@ -85,7 +86,6 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 
 	copy_device_to_host(d_expected_output, h_expected_output);
 	copy_device_to_host(d_node_outputs[d_net.number_of_layers - 1], h_last_layer_outputs);
-	print_vector(*h_expected_output);
 	for(int node = 0; node < d_net.nodes_in_layer[d_net.number_of_layers-1]; node++){//this is faster on CPU than transferring to a GPU
 		float value = 2*(get_element(*h_last_layer_outputs, node) - get_element(*h_expected_output, node));
 		set_element(*h_last_layer_derivative, node, value);
