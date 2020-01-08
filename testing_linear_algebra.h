@@ -239,7 +239,7 @@ int test_matrix_add(int height, int width, float max){
 }
 
 
-int testLinearAlgebra(){
+int test_linear_algebra(){
 	printf("testing linear_algebra.\n\n");
 	int memory = test_memory_functions();
 	int algebra = 0;//testAlgebraFunctions();

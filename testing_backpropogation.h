@@ -48,13 +48,13 @@ int test_backpropogate(){
 int test_calculate_nodes(){
 	int failed = 0;
 	printf("testing calculateNodes()\n\n");
-	node_outputs = calculate_nodes(&d_net, *input);
 
 	vector **node_outputs_host = (vector**)malloc(sizeof(vector*)*net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		vector *temp = build_vector(10);
 		copy_device_to_host(node_outputs[layer], temp);
 		node_outputs_host[layer] = temp;
+		print_vector(*temp);
 	}
 
 	vector *temp_vector = build_vector(input->length);
@@ -82,10 +82,8 @@ int test_calculate_nodes(){
 		temp_vector = nextLayer;
 	}
 	for(int layer = 0; layer < layers; layer++){
-		cuda_free_vector(node_outputs[layer]);
 		free_vector(node_outputs_host[layer]);
 	}
-	free(node_outputs);
 	free(node_outputs_host);
 	return failed;
 }
@@ -103,23 +101,29 @@ int test_calculate_next_layer_node_derivatives(){
 
 	int threadsPerBlock = net.nodes_in_layer[layers - 3];
 	int blocks = net.nodes_in_layer[layers - 2];
-
+	for(int layer = 0; layer < layers; layer++){
+		vector *temp = build_vector(10);
+		copy_device_to_host(node_outputs[layer], temp);
+		print_vector(*temp);
+	}
 	vector *node_derivatives_next_layer = cuda_build_vector(net.nodes_in_layer[layers-2]);
 	vector *node_derivatives_this_layer = cuda_build_vector(net.nodes_in_layer[layers-3]);
 	calculate_next_layer_node_derivatves<<<threadsPerBlock, blocks>>>(net, layers - 1,  *(node_outputs[layers-1]), *node_derivatives_next_layer, *node_derivatives_this_layer);
-
-
+	printf("\n");
+	for(int layer = 0; layer < layers; layer++){
+		vector *temp1 = build_vector(10);
+		copy_device_to_host(node_outputs[layer], temp1);
+		print_vector(*temp1);
+	}
 
 	failed |= cudaDeviceSynchronize();
-
+	printf("done testing calculate_next_layer_node_derivatives\n");
 	return failed;
 }
 int test_calculate_node_derivatives(){
 	printf("testing calculateNodeDerivatives()\n\n");
 	int failed = 0;
 	vector *temp = build_vector(10);
-
-	node_outputs = calculate_nodes(&d_net, *input);
 	for(int layer = 0; layer < layers; layer++){
 		copy_device_to_host(node_outputs[layer], temp);
 		print_vector(*temp);
@@ -149,6 +153,7 @@ int test_backpropogation(){
 	expected = build_vector(nodes[layers - 1]);
 	d_input = cuda_build_vector(nodes[0]);
 	d_expected = cuda_build_vector(nodes[layers - 1]);
+	node_outputs = calculate_nodes(&d_net, *input);
 
 	randomize_network(net, max_weights, max_biases);
 	randomize_vector(input, max_biases);
@@ -170,8 +175,9 @@ int test_backpropogation(){
 	free_vector(expected);
 	cuda_free_vector(d_input);
 	cuda_free_vector(d_expected);
-	//freeNetwork(net);
-	//cudaFreeNetwork(d_net);
+
+	//free_network(net);
+	//cuda_free_network(d_net);
 
 	return failed;
 }

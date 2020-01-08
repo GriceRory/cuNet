@@ -8,7 +8,7 @@ int main(void){
 	int fails = 0;
 
 
-	fails = testLinearAlgebra();
+	fails = test_linear_algebra();
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n");
 	}
@@ -23,7 +23,7 @@ int main(void){
 	if(!database_fails){printf("testing database.h nominal\n");}
 
 
-	int backpropogation_fails = 0;//testBackpropogation();
+	int backpropogation_fails = test_backpropogation();
 	fails |= backpropogation_fails;
 	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n");}
 
