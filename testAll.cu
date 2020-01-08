@@ -8,22 +8,22 @@ int main(void){
 	int fails = 0;
 
 
-	fails = 0;//testLinearAlgebra();
+	fails = testLinearAlgebra();
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n");
 	}
-	int network_fails = 0;//testNetwork();
+	int network_fails = test_network();
 	fails |= network_fails;
 	if(!network_fails){
 		printf("testing network.h nominal\n");
 	}
 
-	int database_fails = 0;//testingDatabase();
+	int database_fails = testing_database();
 	fails |= database_fails;
 	if(!database_fails){printf("testing database.h nominal\n");}
 
 
-	int backpropogation_fails = testBackpropogation();
+	int backpropogation_fails = 0;//testBackpropogation();
 	fails |= backpropogation_fails;
 	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n");}
 
