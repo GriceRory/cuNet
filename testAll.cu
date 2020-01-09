@@ -7,7 +7,6 @@ int main(void){
 	srand(time(NULL));
 	int fails = 0;
 
-
 	fails = test_linear_algebra();
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n");
@@ -21,7 +20,6 @@ int main(void){
 	int database_fails = testing_database();
 	fails |= database_fails;
 	if(!database_fails){printf("testing database.h nominal\n");}
-
 
 	int backpropogation_fails = test_backpropogation();
 	fails |= backpropogation_fails;

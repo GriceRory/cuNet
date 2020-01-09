@@ -7,8 +7,8 @@ vector** calculate_nodes(network *d_net, vector h_input);
 
 //training functions
 void apply_deltas(network d_net, network d_change);//returns current cudaStatus
-__global__ void calculate_next_layer_weight_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives);
-__global__ void calculate_next_layer_bias_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives);
+__global__ void calculate_next_layer_weight_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
+__global__ void calculate_next_layer_bias_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
 __global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer);
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector d_expected_output);//returns current cudaStatus
 
@@ -35,27 +35,27 @@ void apply_deltas(network d_net, network d_change){
 	}
 }
 
-__global__ void calculate_next_layer_weight_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives){
+__global__ void calculate_next_layer_weight_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives){
 	//weight from
 	int i = blockDim.x* blockIdx.x + threadIdx.x;
 	//weight to
 	int j = blockDim.y* blockIdx.y + threadIdx.y;
-	int nodes_in_layer = d_net.nodes_in_layer[layer];
+	int nodes_in_layer = d_change.nodes_in_layer[layer];
 	float dE_by_dNodeOutputNextLayer = get_element(d_node_derivatives, j + nodes_in_layer);
 	float dNodeOutputNextLayer_by_dNoteInputNextLayer = sigmoid(get_element(d_node_outputs, j + nodes_in_layer));
 	float dNodeInputNextLayer_by_dWeightConnecting = get_element(d_node_outputs, i);
 	//the chain rule allows us to multiply these together.
 	float weight_change = dE_by_dNodeOutputNextLayer * dNodeOutputNextLayer_by_dNoteInputNextLayer * dNodeInputNextLayer_by_dWeightConnecting;
-	set_element(*d_net.weights[layer], i, j, weight_change);
+	set_element(*d_change.weights[layer], i, j, weight_change);
 }
 
-__global__ void calculate_next_layer_bias_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives){
+__global__ void calculate_next_layer_bias_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives){
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
 	float dE_by_bNodeOutputNextLayer = get_element(d_node_derivatives, idx);
 	float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid(get_element(d_node_outputs, idx));
 	//dNodeInputNextLayer/dBias = 1, and using the chain rule here;
 	float biasDelta = dE_by_bNodeOutputNextLayer * dNodeOutputNextLayer_by_dNodeInputNextLayer;
-	set_element(*(d_net.biases[layer]), idx, biasDelta);
+	set_element(*(d_change.biases[layer]), idx, biasDelta);
 }
 
 __global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer){

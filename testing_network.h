@@ -10,6 +10,8 @@ int test_copy_to_host_functions(int layers);
 int test_calculate_layer();
 int test_run_network(int layers);
 
+vector* host_run_network(network net, vector input);
+vector* host_calculate_layer(matrix weights, vector biases, vector input);
 
 
 int test_build_network(int layers){
@@ -167,7 +169,6 @@ int test_calculate_layer(){
 	copy_host_to_device(weights, d_weights);
 	copy_host_to_device(input, d_input);
 	copy_host_to_device(biases, d_biases);
-	copy_host_to_device(output, d_output);
 
 	cudaDeviceSynchronize();
 	calculate_layer(*d_weights, *d_biases, *d_input, *d_output);
@@ -175,14 +176,14 @@ int test_calculate_layer(){
 	copy_device_to_host(d_output, output_test);
 	cudaDeviceSynchronize();
 
+	output = host_calculate_layer(*weights, *biases, *input);
+
 	for(int col = 0; col < weights->width; col++){
-		float temp = 0.0;
-		for(int row = 0; row < weights->height; row++){
-			temp += get_element(*weights, row, col) * get_element(*input, row);
-		}
-		temp = sigmoid(temp + get_element(*output_test, col));
-		if(get_element(*output_test, col) - temp > 0.2 || get_element(*output_test, col) - temp < -0.2){
-			printf("failed on index %d with out = %.10f, expected = %.10f\n", col, get_element(*output_test, col), temp);
+		if(get_element(*output_test, col) - get_element(*output_test, col) > 0.01
+				|| get_element(*output_test, col) - get_element(*output_test, col) < -0.01){
+
+			printf("failed on index %d with out = %.10f, expected = %.10f\n",
+					col, get_element(*output_test, col), get_element(*output_test, col));
 			failed = 1;
 		}
 	}
@@ -208,23 +209,11 @@ int test_run_network(int layers){
 	error = run_network(net_device, *input, output);
 	if(error != cudaSuccess){printf("error run network = %d\n\n", error);}
 
-	for(int layer = 0; layer < layers - 1; layer++){
-		vector *nextLayer = build_vector(net.nodes_in_layer[layer+1]);
-		for(int col = 0; col < (net.weights[layer])->width; col++){
-			float temp = 0.0;
-			for(int row = 0; row < (net.weights[layer])->height; row++){
-				temp += get_element(*(net.weights[layer]), row, col) * get_element(*input, row);
-			}
-			temp += get_element(*(net.biases[layer]), col);
-			temp = sigmoid(temp);
-			set_element(*nextLayer, col, temp);
-		}
-		free_vector(input);
-		input = nextLayer;
-	}
+	vector *output_test = host_run_network(net, *input);
+
 	for(int element = 0; element < output->length; element++){
-		if(!(get_element(*output, element) - get_element(*input, element) < 0.01 && get_element(*output, element) - get_element(*input, element) > -0.01)){
-			printf("failed on output element = %d, output = %f, expected = %f\n", element, get_element(*output, element), get_element(*input, element));
+		if(!(get_element(*output, element) - get_element(*output_test, element) < 0.05 && get_element(*output, element) - get_element(*output_test, element) > -0.05)){
+			printf("failed on output element = %d, output = %f, expected = %f\n", element, get_element(*output, element), get_element(*output_test, element));
 			failed = 1;
 		}
 	}
@@ -232,8 +221,25 @@ int test_run_network(int layers){
 	return failed;
 }
 
-
-
+vector* host_run_network(network net, vector input){
+	vector *output = &input;
+	for(int layer = 0; layer < net.number_of_layers - 1; layer++){
+		vector *temp =  host_calculate_layer(*net.weights[layer], *net.biases[layer], *output);
+		output = temp;
+	}
+	return output;
+}
+vector* host_calculate_layer(matrix weights, vector biases, vector input){
+	vector *output = build_vector(weights.width);
+	for(int col = 0; col < weights.width; col++){
+		float temp = get_element(biases, col);
+		for(int row = 0; row < weights.height; row++){
+			temp += get_element(input, row) * get_element(weights, row, col);
+		}
+		set_element(*output, col, sigmoid(temp));
+	}
+	return output;
+}
 
 int test_network(){
 	int failed = 0;
