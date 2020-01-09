@@ -35,7 +35,7 @@ int test_build_network(int layers){
 		failed |= get_bias(net, net.number_of_layers - 1, element) != 0.0;
 		if(get_bias(net, net.number_of_layers - 1, element) != 0.0){printf("failed bias layer = %d, element = %d, value =  %f\n\n", net.number_of_layers, element, get_bias(net, net.number_of_layers - 1, element));}
 	}
-	if(failed){printf("failed testing buildNetwork()");}
+	if(failed){printf("failed testing buildNetwork()\n");}
 	return failed;
 }
 int test_randomize_network(int layers){
@@ -63,7 +63,7 @@ int test_randomize_network(int layers){
 		failed |= get_bias(net, net.number_of_layers - 1, element) <= -biasMax || get_bias(net, net.number_of_layers - 1, element) >= biasMax;
 		if(get_bias(net, net.number_of_layers - 1, element) <= -biasMax || get_bias(net, net.number_of_layers - 1, element) >= biasMax){printf("failed bias layer = %d, element = %d, value =  %f\n\n", net.number_of_layers, element, get_bias(net, net.number_of_layers - 1, element));}
 	}
-	if(failed){printf("failed testing randomizeNetwork()");}
+	if(failed){printf("failed testing randomizeNetwork()\n");}
 	return failed;
 }
 int test_cuda_build_network(int layers){
@@ -74,7 +74,7 @@ int test_cuda_build_network(int layers){
 	}
 	network net = cuda_build_network(layers, nodes);
 	failed |= cudaGetLastError();
-	if(failed){printf("failed testing randomizeNetwork()");}
+	if(failed){printf("failed testing randomizeNetwork()\n");}
 	return failed;
 }
 int test_copy_to_device_functions(int layers){
@@ -186,7 +186,7 @@ int test_calculate_layer(){
 			failed = 1;
 		}
 	}
-	if(failed){printf("\n\nfailed testing calculateLayer()");}
+	if(failed){printf("\n\nfailed testing calculateLayer()\n");}
 	return failed;
 }
 int test_run_network(int layers){

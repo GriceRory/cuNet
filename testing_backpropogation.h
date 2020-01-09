@@ -6,9 +6,10 @@ int test_calculate_next_layer_weight_changes();
 int test_calculate_next_layer_bias_changes();
 int test_calculate_next_layer_node_derivatives();
 int test_calculate_node_derivatives();
+float error_term(network d_net, vector h_input, vector expected);
 
 
-int layers = 5;
+int layers = 3;
 float max_weights = 2.0;
 float max_biases = 1.0;
 
@@ -28,10 +29,12 @@ int test_train(){
 	int failed = 0;
 	return failed;
 }
+
 int test_backpropogate(){
 	int failed = 0;
 	printf("testing backpropogate\n\n");
 	network weight_and_bias_changes = cuda_build_network(layers, nodes);
+	float error_previously = error_term(d_net, *input, *expected);
 	failed |= backpropogate(&d_net, &weight_and_bias_changes, *input, expected);
 
 	network weight_and_bias_changes_host = build_network(layers, nodes);
@@ -41,44 +44,55 @@ int test_backpropogate(){
 		printf("weights\n");
 		print_matrix(*weight_and_bias_changes_host.weights[layer]);
 	}
-
+	apply_deltas(d_net, weight_and_bias_changes);
+	float error_after = error_term(d_net, *input, *expected);
+	if(error_after > error_previously){failed = 1;printf("error was increased\n");}
 	free(nodes);
 	return failed;
 }
+
 int test_calculate_nodes(){
 	int failed = 0;
 	printf("testing calculateNodes()\n\n");
 
+	printf("printing calculate_nodes() output\n");
 	vector **node_outputs_host = (vector**)malloc(sizeof(vector*)*net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		vector *temp = build_vector(10);
 		copy_device_to_host(node_outputs[layer], temp);
 		node_outputs_host[layer] = temp;
+		print_vector(*temp);
 	}
 
-	vector *temp_vector = build_vector(input->length);
+
+	printf("\nprinting and calculating testing node output values\n\n");
+	vector *current_layer_outputs = build_vector(input->length);
 	for(int element = 0; element < input->length; element++){
-		set_element(*temp_vector, element, get_element(*input, element));
+		set_element(*current_layer_outputs, element, get_element(*input, element));
 	}
+	print_vector(*current_layer_outputs);
 
 	for(int layer = 0; layer < layers; layer++){
-		vector *nextLayer = build_vector(net.nodes_in_layer[layer+1]);
+		vector *next_layer_outputs = build_vector(net.nodes_in_layer[layer+1]);
+
 		for(int col = 0; col < (net.weights[0])->width; col++){
-			float temp = 0.0;
+			float temp = get_element(*(net.biases[layer]), col);
 			for(int row = 0; row < (net.weights[0])->height; row++){
-				temp += get_element(*(net.weights[0]), row, col) * get_element(*temp_vector, row);
+				temp += get_element(*(net.weights[0]), row, col) * get_element(*current_layer_outputs, row);
 			}
-			temp += get_element(*(net.biases[layer]), col);
 			temp = sigmoid(temp);
-			set_element(*nextLayer, col, temp);
+			set_element(*next_layer_outputs, col, temp);
 		}
-		for(int element = 0; element < nextLayer->length; element++){
-			if(!(get_element(*node_outputs_host[layer], element) - get_element(*temp_vector, element) < 0.9 && get_element(*node_outputs_host[layer], element) - get_element(*temp_vector, element) > -0.9)){
-				printf("failed in layer %d on output element = %d, output = %f, expected = %f\n", layer, element, get_element(*node_outputs_host[layer], element), get_element(*temp_vector, element));
+
+		for(int element = 0; element < next_layer_outputs->length; element++){
+			if(!(get_element(*node_outputs_host[layer], element) - get_element(*current_layer_outputs, element) < 0.9
+					&& get_element(*node_outputs_host[layer], element) - get_element(*current_layer_outputs, element) > -0.9)){
+				//printf("failed in layer %d on output element = %d, output = %f, expected = %f\n", layer, element, get_element(*node_outputs_host[layer], element), get_element(*temp_vector, element));
 				failed = 1;
 			}
 		}
-		temp_vector = nextLayer;
+		print_vector(*next_layer_outputs);
+		current_layer_outputs = next_layer_outputs;
 	}
 	for(int layer = 0; layer < layers; layer++){
 		free_vector(node_outputs_host[layer]);
@@ -86,14 +100,18 @@ int test_calculate_nodes(){
 	free(node_outputs_host);
 	return failed;
 }
+
 int test_calculate_next_layer_weight_changes(){
 	int failed = 0;
+
 	return failed;
 }
+
 int test_calculate_next_layer_bias_changes(){
 	int failed = 0;
 	return failed;
 }
+
 int test_calculate_next_layer_node_derivatives(){
 	int failed = 0;
 	printf("testing calculateNextLayerNodeDerivatives()\n\n");
@@ -118,6 +136,7 @@ int test_calculate_next_layer_node_derivatives(){
 	printf("done testing calculate_next_layer_node_derivatives\n");
 	return failed;
 }
+
 int test_calculate_node_derivatives(){
 	printf("testing calculateNodeDerivatives()\n\n");
 	int failed = 0;
@@ -129,7 +148,15 @@ int test_calculate_node_derivatives(){
 }
 
 
-
+float error_term(network d_net, vector h_input, vector expected){
+	float error = 0.0;
+	vector *h_output = build_vector(d_net.nodes_in_layer[d_net.number_of_layers - 1]);
+	run_network(d_net, h_input, h_output);
+	for(int element = 0; element < h_output->length; element++){
+		error += (get_element(*h_output, element) - get_element(expected, element))*(get_element(*h_output, element) - get_element(expected, element));
+	}
+	return error;
+}
 
 int test_backpropogation(){
 	printf("testing backpropogation\n");

@@ -6,7 +6,7 @@ int backpropogate(network *d_net, network *d_change, vector h_input, vector *d_e
 vector** calculate_nodes(network *d_net, vector h_input);
 
 //training functions
-void apply_deltas(network *d_net, network d_change);//returns current cudaStatus
+void apply_deltas(network d_net, network d_change);//returns current cudaStatus
 __global__ void calculate_next_layer_weight_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives);
 __global__ void calculate_next_layer_bias_changes(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives);
 __global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer);
@@ -18,20 +18,20 @@ void train(network *d_net, database *sample){
 	for(int i = 0; i < sample->size; i++){
 		network weight_and_bias_changes_sample = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, *(sample->inputs[i]), sample->outputs[i]);
-		apply_deltas(&weight_and_bias_changes, weight_and_bias_changes_sample);
+		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
-	apply_deltas(d_net, weight_and_bias_changes);
+	apply_deltas(*d_net, weight_and_bias_changes);
 }
 
-void apply_deltas(network *d_net, network d_change){
+void apply_deltas(network d_net, network d_change){
 	int threadsPerBlock = 0;
-	for(int layer = 0; layer < d_net->number_of_layers; layer++){
-		threadsPerBlock = (d_net->weights[layer])->height;
-		int blocks = (d_net->weights[layer])->width;
-		matrix_add<<<threadsPerBlock, blocks>>>(*(d_net->weights[layer]), *(d_change.weights[layer]));
+	for(int layer = 0; layer < d_net.number_of_layers; layer++){
+		threadsPerBlock = (d_net.weights[layer])->height;
+		int blocks = (d_net.weights[layer])->width;
+		matrix_add<<<threadsPerBlock, blocks>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
 
 		threadsPerBlock = BLOCK_SIZE;
-		vector_add<<<threadsPerBlock, blocks>>>(*(d_net->biases[layer]), *(d_change.biases[layer]));
+		vector_add<<<threadsPerBlock, blocks>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
 	}
 }
 

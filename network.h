@@ -90,6 +90,7 @@ int run_network(network d_net, vector h_input, vector *h_output){
 	copy_host_to_device(&h_input, current_node_values);
 
 	for(int current_layer = 0; current_layer < d_net.number_of_layers - 1; current_layer++){
+		sleep(2);
 		calculate_layer(*d_net.weights[current_layer], *d_net.biases[current_layer], *current_node_values, *next_node_values);
 		cudaDeviceSynchronize();
 	}
