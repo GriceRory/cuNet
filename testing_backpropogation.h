@@ -58,48 +58,27 @@ int test_backpropogate(){
 int test_calculate_nodes(){
 	int failed = 0;
 	printf("testing calculateNodes()\n\n");
-
-	printf("printing calculate_nodes() output\n");
 	vector **node_outputs_host = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		vector *temp = build_vector(10);
 		copy_device_to_host(node_outputs[layer], temp);
 		node_outputs_host[layer] = temp;
-		print_vector(*temp);
+		//print_vector(*temp);
 	}
-
-	printf("\nprinting and calculating testing node output values\n\n");
-	vector *current_layer_outputs = build_vector(h_input->length);
-	for(int element = 0; element < h_input->length; element++){
-		set_element(*current_layer_outputs, element, get_element(*h_input, element));
+	vector **node_output_host_test = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
+	node_output_host_test[0] = h_input;
+	for(int layer = 1; layer < layers; layer++){
+		node_output_host_test[layer] = host_calculate_layer(*h_net.weights[layer-1], *h_net.biases[layer-1], *node_output_host_test[layer-1]);
+		print_vector(*node_outputs_host[layer]);
+		print_vector(*node_output_host_test[layer]);
+		printf("\n\n");
 	}
-	print_vector(*current_layer_outputs);
 
 	for(int layer = 0; layer < layers; layer++){
-		vector *next_layer_outputs = build_vector(h_net.nodes_in_layer[layer+1]);
-
-		for(int col = 0; col < (h_net.weights[0])->width; col++){
-			float temp = get_element(*(h_net.biases[layer]), col);
-			for(int row = 0; row < (h_net.weights[0])->height; row++){
-				temp += get_element(*(h_net.weights[0]), row, col) * get_element(*current_layer_outputs, row);
-			}
-			temp = sigmoid(temp);
-			set_element(*next_layer_outputs, col, temp);
-		}
-
-		for(int element = 0; element < next_layer_outputs->length; element++){
-			if(!(get_element(*node_outputs_host[layer], element) - get_element(*current_layer_outputs, element) < 0.9
-					&& get_element(*node_outputs_host[layer], element) - get_element(*current_layer_outputs, element) > -0.9)){
-				//printf("failed in layer %d on output element = %d, output = %f, expected = %f\n", layer, element, get_element(*node_outputs_host[layer], element), get_element(*temp_vector, element));
-				failed = 1;
-			}
-		}
-		print_vector(*next_layer_outputs);
-		current_layer_outputs = next_layer_outputs;
-	}
-	for(int layer = 0; layer < layers; layer++){
+		free_vector(node_output_host_test[layer]);
 		free_vector(node_outputs_host[layer]);
 	}
+	free(node_output_host_test);
 	free(node_outputs_host);
 	return failed;
 }

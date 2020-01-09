@@ -103,16 +103,16 @@ int run_network(network d_net, vector h_input, vector *h_output){
 int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_output){
 	int threads_per_block = BLOCK_SIZE;
 	int number_of_blocks = d_output.length;
-	//sleep(2);
+	sleep(2);
 	matrix_multiply<<<threads_per_block, number_of_blocks>>>(d_input, d_weights, d_output);
 	cudaError_t error = cudaDeviceSynchronize();
 	if(error){printf("systems failure on matrix multiply in calculateLayer calculation error: %d\n", error);;return error;}
 	number_of_blocks = (d_output.length/BLOCK_SIZE) + 1;
-	//sleep(2);
+	sleep(2);
 	vector_add<<<threads_per_block, number_of_blocks>>>(d_output, d_biases);
 	error = cudaDeviceSynchronize();
 	if(error){printf("systems failure on vector add in calculateLayer calculation error: %d\n", error);return error;}
-	//sleep(2);
+	sleep(2);
 	apply_signal_function<<<threads_per_block, number_of_blocks>>>(d_output);
 	error = cudaDeviceSynchronize();
 	if(error){printf("error type = %s\n\n", cudaGetErrorString(error));
