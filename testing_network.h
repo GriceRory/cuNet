@@ -179,8 +179,7 @@ int test_calculate_layer(){
 	output = host_calculate_layer(*weights, *biases, *input);
 
 	for(int col = 0; col < weights->width; col++){
-		if(get_element(*output_test, col) - get_element(*output_test, col) > 0.01
-				|| get_element(*output_test, col) - get_element(*output_test, col) < -0.01){
+		if(difference_tollerance(get_element(*output_test, col), get_element(*output_test, col), 0.01)){
 
 			printf("failed on index %d with out = %.10f, expected = %.10f\n",
 					col, get_element(*output_test, col), get_element(*output_test, col));
@@ -212,7 +211,7 @@ int test_run_network(int layers){
 	vector *output_test = host_run_network(net, *input);
 
 	for(int element = 0; element < output->length; element++){
-		if(!(get_element(*output, element) - get_element(*output_test, element) < 0.05 && get_element(*output, element) - get_element(*output_test, element) > -0.05)){
+		if(difference_tollerance(get_element(*output, element), get_element(*output_test, element), 0.05)){
 			printf("failed on output element = %d, output = %f, expected = %f\n", element, get_element(*output, element), get_element(*output_test, element));
 			failed = 1;
 		}

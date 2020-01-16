@@ -9,7 +9,7 @@ vector** calculate_nodes(network *d_net, vector h_input);
 void apply_deltas(network d_net, network d_change);//returns current cudaStatus
 __global__ void calculate_next_layer_weight_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
 __global__ void calculate_next_layer_bias_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
-__global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer);
+__global__ void calculate_this_layer_node_derivatves(matrix device_connecting_weights, vector device_node_outputs_next_layer, vector device_node_derivatives_next_layer, vector device_node_derivatives_this_layer);
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector d_expected_output);//returns current cudaStatus
 
 
@@ -58,22 +58,27 @@ __global__ void calculate_next_layer_bias_changes(network d_change, int layer, v
 	set_element(*(d_change.biases[layer]), idx, biasDelta);
 }
 
-__global__ void calculate_next_layer_node_derivatves(network d_net, int layer, vector d_node_outputs, vector d_node_derivatives_next_layer, vector d_node_derivatives_this_layer){
-	int nodeFrom = threadIdx.x;
-	int nodeTo = blockIdx.x;
-
+__global__ void calculate_this_layer_node_derivatves(matrix device_connecting_weights, vector device_node_outputs_next_layer, vector device_node_derivatives_next_layer, vector device_node_derivatives_this_layer){
+	int nodeTo = threadIdx.x;
+	int nodeFrom = blockIdx.x;
+	if(nodeFrom >= device_node_derivatives_this_layer.length){return;}
 	__shared__ float node_derivative_components[BLOCK_SIZE];
-	float dE_by_dNodeOutputNextLayer = get_element(d_node_derivatives_next_layer, nodeFrom);
-	float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid(get_element(d_node_outputs, nodeFrom));
-	float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = 1;//get_element(*(d_net.weights[layer]), nodeFrom, nodeTo);
-	//the chain rule lets us calculate each component
-	node_derivative_components[nodeFrom] = dE_by_dNodeOutputNextLayer *
-			dNodeOutputNextLayer_by_dNodeInputNextLayer *
-			dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
 
+	for(int thread_group = 0; thread_group < (device_node_derivatives_next_layer.length/BLOCK_SIZE) + 1; thread_group++){
+		nodeTo = threadIdx.x + thread_group*BLOCK_SIZE;
+		if(nodeTo >= device_node_derivatives_next_layer.length){return;}
+
+		float dE_by_dNodeOutputNextLayer = get_element(device_node_derivatives_next_layer, nodeTo);
+		float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid_derivative(get_element(device_node_outputs_next_layer, nodeTo));
+		float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = get_element(device_connecting_weights, nodeFrom, nodeTo);
+		//the chain rule lets us calculate each component
+		node_derivative_components[nodeTo] += dE_by_dNodeOutputNextLayer *
+				dNodeOutputNextLayer_by_dNodeInputNextLayer *
+				dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
+	}
 	reduce(node_derivative_components);
 
-	set_element(d_node_derivatives_this_layer, nodeTo, node_derivative_components[0]);
+	set_element(device_node_derivatives_this_layer, nodeFrom, node_derivative_components[0]);
 }
 
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output){
@@ -95,12 +100,12 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 
 	//calculates each layer then checks for cuda errors.
 	d_node_derivatives[d_net.number_of_layers - 1] = cuda_build_vector(d_net.nodes_in_layer[d_net.number_of_layers - 1]);
-	for(int layer = d_net.number_of_layers - 2; layer >= 0; layer--){
-		int threadsPerBlock = d_net.nodes_in_layer[layer];
+	for(int layer = d_net.number_of_layers - 1; layer >= 0; layer--){
+		int threadsPerBlock = BLOCK_SIZE;
 		int blocks = d_net.nodes_in_layer[layer + 1];
 		d_node_derivatives[layer] = cuda_build_vector(d_net.nodes_in_layer[layer]);
 		cudaDeviceSynchronize();
-		calculate_next_layer_node_derivatves<<<threadsPerBlock, blocks>>>(d_net, layer, *d_node_outputs[layer], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
+		calculate_this_layer_node_derivatves<<<threadsPerBlock, blocks>>>(*d_net.weights[layer], *d_node_outputs[layer+1], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
 	}
 	return d_node_derivatives;
 }

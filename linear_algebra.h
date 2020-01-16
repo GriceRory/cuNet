@@ -92,7 +92,7 @@ __global__ void vector_add(vector d_target, vector d_addition){
 }
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
-	__shared__ float reduced_sum[BLOCK_SIZE + 1];
+	__shared__ float reduced_sum[BLOCK_SIZE];
 	//if the column(block) is outside the column width.
 	int col = blockIdx.x;
 	if(col >= d_M.width){return;}
@@ -103,25 +103,18 @@ __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
 	for(int thread_group = 0; thread_group < (d_input.length/BLOCK_SIZE) + 1; thread_group++){
 		//calculate the index we are at in this subset
 		int row = threadIdx.x + thread_group*BLOCK_SIZE;
-		//if the index is past the length of the vector its component is zero
+		//if the index is inside the bounds calculate the component
 		if(row < d_input.length){
 			vector_value = get_element(d_input, row);
 			matrix_value = get_element(d_M, row, col);
-			reduced_sum[threadIdx.x] = vector_value * matrix_value;
-		}else{
-			//calculate this component of the multiplication
-			reduced_sum[threadIdx.x] = 0.0;
+			reduced_sum[threadIdx.x] += vector_value * matrix_value;
 		}
-		//calculate the reduced sum of the components in this subset
-		reduce(reduced_sum);
-
-		//add the reduced sum of the components in this subset to the tally of all the reduced sums.
-		reduced_sum[BLOCK_SIZE] += reduced_sum[0];
 	}
-
+	//calculate the reduced sum of the components in this subset
+	reduce(reduced_sum);
 	//set the element output.
 	if(threadIdx.x == 0){
-		set_element(d_out, col, reduced_sum[BLOCK_SIZE]);
+		set_element(d_out, col, reduced_sum[0]);
 	}
 }
 
