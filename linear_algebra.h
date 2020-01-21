@@ -33,6 +33,8 @@ __global__ void matrix_multiply(vector d_input, matrix m, vector d_out);
 __device__ void reduce(float *reduced_sum);
 __global__ void matrix_add(matrix d_target, matrix d_addition);
 __global__ void vector_add(vector d_target, vector d_addition);
+__global__ void vector_subtract(vector d_output, vector d_value, vector d_subtraction);
+__global__ void scalar_multiply(vector d_vector, float scalar);
 
 //matrix memory
 matrix* cuda_build_matrix(int height, int width);
@@ -84,11 +86,26 @@ __global__ void matrix_add(matrix d_target, matrix d_addition){
 	float value = get_element(d_target, row, col) + get_element(d_addition, row, col);
 	set_element(d_target, row, col, value);
 }
+
 __global__ void vector_add(vector d_target, vector d_addition){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
 	if(idx >= d_target.length){return;}
 	float value = get_element(d_target, idx);
 	set_element(d_target, idx, value + get_element(d_addition, idx));
+}
+
+__global__ void vector_subtract(vector d_output, vector d_value, vector d_subtraction){
+	int idx = threadIdx.x + blockIdx.x*blockDim.x;
+	if(idx >= d_output.length){return;}
+	float value = get_element(d_value, idx) - get_element(d_subtraction, idx);
+	set_element(d_output, idx, value);
+}
+
+__global__ void scalar_multiply(vector d_vector, float scalar){
+	int idx = threadIdx.x + blockIdx.x*blockDim.x;
+	if(idx >= d_vector.length){return;}
+	float value = get_element(d_vector, idx) * scalar;
+	set_element(d_vector, idx, value);
 }
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
@@ -197,13 +214,21 @@ void free_vector(vector *host){
 	return;
 }
 int copy_device_to_host(vector *device, vector *host){
-	host->length = device->length;
-	return_cuda_status
+	if(host->length != device->length){
+		host->length = device->length;
+		free(host->elements);
+		host->elements = (float*)malloc(sizeof(float)*host->length);
+	}
 	cudaMemcpy(host->elements, device->elements, sizeof(float)*host->length, cudaMemcpyDeviceToHost);
 	return cudaGetLastError();
 }
 int copy_host_to_device(vector *host, vector *device){
-	device->length = host->length;
+	if(device->length != host->length){
+		device->length = host->length;
+		cudaFree(device->elements);
+		cudaMalloc(&(device->elements), sizeof(float)*device->length);
+	}
+
 	return_cuda_status
 	cudaMemcpy(device->elements, host->elements, sizeof(float)*host->length, cudaMemcpyHostToDevice);
 	return cudaPeekAtLastError();
