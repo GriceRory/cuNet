@@ -19,7 +19,8 @@ void randomize_database(database h_db, float max_input, float max_output, int in
 void read_vector(vector *h_v, int vector_length, FILE *file_pointer);
 void write_vector(vector *h_v, FILE *file_pointer);
 int read_int(FILE *file_pointer);
-
+void free_database(database *h_db);
+void cuda_free_database(database *d_db);
 
 database* build_database(int size){
 	database *db = (database*)malloc(sizeof(database));
@@ -121,4 +122,20 @@ void copy_device_to_host(database *device, database *host){
 		copy_device_to_host(device->inputs[pair], host->inputs[pair]);
 		copy_device_to_host(device->outputs[pair], host->outputs[pair]);
 	}
+}
+
+void free_database(database *h_db){
+	for(int element = 0; element < h_db->size; element++){
+		free_vector(h_db->inputs[element]);
+		free_vector(h_db->outputs[element]);
+	}
+	free(h_db);
+}
+
+void cuda_free_database(database *d_db){
+	for(int element = 0; element < d_db->size; element++){
+		cuda_free_vector(d_db->inputs[element]);
+		cuda_free_vector(d_db->outputs[element]);
+	}
+	free(d_db);
 }

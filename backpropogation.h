@@ -7,17 +7,17 @@ vector** calculate_nodes(network *d_net, vector *h_input);
 
 //training functions
 void apply_deltas(network d_net, network d_change);//returns current cudaStatus
-__global__ void calculate_next_layer_weight_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
-__global__ void calculate_next_layer_bias_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives);
+__global__ void calculate_next_layer_weight_changes(matrix d_change, vector d_node_outputs_next_layer, vector d_node_outputs_previous_layer, vector d_node_derivatives_next_layer);
+__global__ void calculate_next_layer_bias_changes(vector d_change, vector d_node_outputs, vector d_node_derivatives);
 __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_weights, vector device_node_outputs_next_layer, vector device_node_derivatives_next_layer, vector device_node_derivatives_this_layer);
 void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives, vector *d_expected_output, vector *d_node_outputs_last_layer);
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output);//returns current cudaStatus
 
 
 void train(network *d_net, database *sample){
-	network weight_and_bias_changes = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
+	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	for(int i = 0; i < sample->size; i++){
-		network weight_and_bias_changes_sample = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
+		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, sample->inputs[i], sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
@@ -25,38 +25,39 @@ void train(network *d_net, database *sample){
 }
 
 void apply_deltas(network d_net, network d_change){
-	int threadsPerBlock = 0;
+	int threadsPerBlock;
+	int blocks;
 	for(int layer = 0; layer < d_net.number_of_layers; layer++){
 		threadsPerBlock = (d_net.weights[layer])->height;
-		int blocks = (d_net.weights[layer])->width;
+		blocks = (d_net.weights[layer])->width;
 		matrix_add<<<threadsPerBlock, blocks>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
-
 		threadsPerBlock = BLOCK_SIZE;
+		blocks = (d_net.biases[layer])->length/threadsPerBlock + 1;
 		vector_add<<<threadsPerBlock, blocks>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
 	}
 }
 
-__global__ void calculate_next_layer_weight_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives){
-	//weight from(height)
-	int i = blockDim.x* blockIdx.x + threadIdx.x;
-	//weight to(width)
-	int j = blockDim.y* blockIdx.y + threadIdx.y;
-	int nodes_in_layer = d_change.nodes_in_layer[layer];
-	float dE_by_dNodeOutputNextLayer = get_element(d_node_derivatives, j + nodes_in_layer);
-	float dNodeOutputNextLayer_by_dNoteInputNextLayer = sigmoid(get_element(d_node_outputs, j + nodes_in_layer));
-	float dNodeInputNextLayer_by_dWeightConnecting = get_element(d_node_outputs, i);
+__global__ void calculate_next_layer_weight_changes(matrix d_change, vector d_node_outputs_next_layer, vector d_node_outputs_previous_layer, vector d_node_derivatives_next_layer){
+	int row = blockDim.x* blockIdx.x + threadIdx.x;
+	int col = blockDim.y* blockIdx.y + threadIdx.y;
+
+	if(col >= d_change.width || row >= d_change.height){return;}
+	float dE_by_dNodeOutputNextLayer = get_element(d_node_derivatives_next_layer, col);
+	float dNodeOutputNextLayer_by_dNoteInputNextLayer = sigmoid(get_element(d_node_outputs_next_layer, col));
+	float dNodeInputNextLayer_by_dWeightConnecting = get_element(d_node_outputs_previous_layer, row);
 	//the chain rule allows us to multiply these together.
 	float weight_change = dE_by_dNodeOutputNextLayer * dNodeOutputNextLayer_by_dNoteInputNextLayer * dNodeInputNextLayer_by_dWeightConnecting;
-	set_element(*d_change.weights[layer], i, j, weight_change);
+	set_element(d_change, row, col, weight_change);
 }
 
-__global__ void calculate_next_layer_bias_changes(network d_change, int layer, vector d_node_outputs, vector d_node_derivatives){
+__global__ void calculate_next_layer_bias_changes(vector d_change, vector d_node_outputs, vector d_node_derivatives){
 	int idx = threadIdx.x + blockIdx.x * blockDim.x;
+	if(idx >= d_change.length){return;}
 	float dE_by_bNodeOutputNextLayer = get_element(d_node_derivatives, idx);
 	float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid(get_element(d_node_outputs, idx));
 	//dNodeInputNextLayer/dBias = 1, and using the chain rule here;
 	float biasDelta = dE_by_bNodeOutputNextLayer * dNodeOutputNextLayer_by_dNodeInputNextLayer;
-	set_element(*(d_change.biases[layer]), idx, biasDelta);
+	set_element(d_change, idx, biasDelta);
 }
 
 __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_weights, vector device_node_outputs_next_layer, vector device_node_derivatives_next_layer, vector device_node_derivatives_this_layer){
@@ -118,13 +119,13 @@ int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_
 	vector **node_derivatives = calculate_node_derivatives(*d_net, node_outputs, d_expected);
 	cuda_status = cudaGetLastError();
 	if(cuda_status != cudaSuccess){return cuda_status;}
-	for(int layer = d_net->number_of_layers - 2; layer >= 0; --layer){
+	for(int layer = 0; layer < d_net->number_of_layers - 1; ++layer){
 		int threadsPerBlock = BLOCK_SIZE;
 		int blocks = BLOCK_SIZE / node_outputs[layer+1]->length + 1;
-		calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(*d_change, layer, *node_outputs[layer+1], *node_derivatives[layer+1]);
-		threadsPerBlock = node_outputs[layer]->length;
-		blocks = node_outputs[layer+1]->length;
-		calculate_next_layer_weight_changes<<<threadsPerBlock, blocks>>>(*d_change, layer, *node_outputs[layer], *node_derivatives[layer]);
+		calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(*d_change->biases[layer], *node_outputs[layer+1], *node_derivatives[layer+1]);
+		dim3 dimGrid(BLOCK_SIZE, BLOCK_SIZE);
+		dim3 dimBlock((d_change->weights[layer]->height/BLOCK_SIZE)+1, (d_change->weights[layer]->width/BLOCK_SIZE)+1);
+		calculate_next_layer_weight_changes<<<dimGrid, dimBlock>>>(*d_change->weights[layer], *node_outputs[layer+1], *node_outputs[layer], *node_derivatives[layer+1]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
 	return cuda_status;

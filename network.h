@@ -62,22 +62,15 @@ network build_network(int layers, int *nodes_in_layer){
 
 network cuda_build_network(int layers, int *nodes_in_layer){
 	network n;
-	vector *v;
-	matrix *m;
 	n.number_of_layers = layers;
 	n.nodes_in_layer = (int *)malloc(sizeof(int)*layers);
 	n.biases = (vector**)malloc(layers*sizeof(vector*));
-	n.weights = (matrix**)malloc((layers-1)*sizeof(matrix*));
-	for(int i = 0; i < layers - 1; i ++){
+	n.weights = (matrix**)malloc(layers*sizeof(matrix*));
+	for(int i = 0; i < layers; i ++){
 		n.nodes_in_layer[i] = nodes_in_layer[i];
-		v = cuda_build_vector(nodes_in_layer[i]);
-		n.biases[i] = v;
-		m = cuda_build_matrix(nodes_in_layer[i], nodes_in_layer[i+1]);
-		n.weights[i] = m;
+		n.biases[i] = cuda_build_vector(nodes_in_layer[i]);
+		n.weights[i] = cuda_build_matrix(nodes_in_layer[i], nodes_in_layer[i+1]);
 	}
-	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
-	v = cuda_build_vector(nodes_in_layer[layers-1]);
-	n.biases[layers-1] = v;
 	return n;
 }
 

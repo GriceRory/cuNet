@@ -160,18 +160,22 @@ matrix* build_matrix(int height, int width){
 	return m;
 }
 int copy_device_to_host(matrix *device, matrix *host){
-	host->width = device->width;
-	return_cuda_status
-	host->height = device->height;
-	return_cuda_status
+	if(device->width != host->width || device->height != host->height){
+		host->width = device->width;
+		host->width = device->width;
+		free(host->elements);
+		host->elements = (float*)malloc(sizeof(float) * device->width * device->height);
+	}
 	cudaMemcpy(host->elements, device->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyDeviceToHost);
 	return cudaGetLastError();
 }
 int copy_host_to_device(matrix *host, matrix *device){
-	device->width = host->width;
-	return_cuda_status
-	device->height = host->height;
-	return_cuda_status
+	if(device->width != host->width || device->height != host->height){
+		device->width = host->width;
+		device->width = host->width;
+		cudaFree(device->elements);
+		cudaMalloc(&(device->elements), sizeof(float) * device->width * device->height);
+	}
 	cudaMemcpy(device->elements, host->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyHostToDevice);
 	return cudaGetLastError();
 }

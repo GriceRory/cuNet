@@ -14,6 +14,8 @@ float error_term(network d_net, vector h_input, vector h_expected);
 vector** host_calculate_node_derivatives(network host_net, vector **host_node_outputs, vector *host_expected);
 vector** host_calculate_node_outputs(network host_net, vector *host_input);
 vector* host_calculate_this_layer_node_derivatives(matrix connecting_weights, vector node_outputs_next_layer, vector node_derivatives_next_layer);
+matrix *host_calculate_next_layer_weight_changes(vector* h_node_outputs_next_layer, vector* h_node_outputs_previous_layer, vector* h_node_derivatives_next_layer);
+vector* host_calculate_next_layer_bias_changes(vector h_node_outputs, vector h_node_derivatives);
 
 int layers = 5;
 float max_weights = 2.0;
@@ -31,8 +33,8 @@ vector *h_input;
 vector *h_expected;
 vector *d_input;
 vector *d_expected;
-vector **node_outputs;
-vector **node_derivatives;
+vector **d_node_outputs;
+vector **d_node_derivatives;
 vector **h_node_outputs;
 vector **h_node_derivatives;
 
@@ -68,7 +70,7 @@ int test_calculate_next_layer_node_derivatives(){
 	vector *node_derivatives_this_layer = cuda_build_vector(h_net.weights[0]->height);
 	vector *host_node_derivatives_this_layer = build_vector(h_net.weights[0]->width);
 
-	calculate_this_layer_node_derivatves<<<threadsPerBlock, blocks>>>(*d_net.weights[0], *(node_outputs[layers-2]), *d_expected, *node_derivatives_this_layer);
+	calculate_this_layer_node_derivatves<<<threadsPerBlock, blocks>>>(*d_net.weights[0], *(d_node_outputs[layers-2]), *d_expected, *node_derivatives_this_layer);
 	cudaDeviceSynchronize();
 	copy_device_to_host(node_derivatives_this_layer, host_node_derivatives_this_layer);
 
@@ -95,7 +97,7 @@ int test_calculate_node_derivatives(){
 
 	for(int layer = 0; layer < layers; layer++){
 		h_node_derivatives[layer] = build_vector(10);
-		copy_device_to_host(node_derivatives[layer], h_node_derivatives[layer]);
+		copy_device_to_host(d_node_derivatives[layer], h_node_derivatives[layer]);
 		for(int element = 0; element < host_node_derivatives_test[layer]->length; element++){
 			float expected = get_element(*host_node_derivatives_test[layer], element);
 			float actual = get_element(*h_node_derivatives[layer], element);
@@ -107,6 +109,7 @@ int test_calculate_node_derivatives(){
 			}
 		}
 	}
+	cudaDeviceSynchronize();
 	if(failed){printf("failed in calculate_node_derivatives()\n");}
 	return failed;
 }
@@ -133,61 +136,133 @@ int test_calculate_last_layer_node_derivatives(){
 
 	if(failed){
 		print_vector(*host_difference);
-		print_vector(*h_input);
-		print_vector(*h_expected);
 		printf("failed in calculate_last_layer_node_derivatives()\n\n");
 	}
 	return failed;
 }
 
+int test_calculate_next_layer_weight_changes(){
+	printf("testing calculate_next_layer_weight_changes()\n\n");
+	int failed = 0;
+	matrix *temp = build_matrix(10, 10);
+	dim3 dimGrid(BLOCK_SIZE, BLOCK_SIZE);
+	dim3 dimBlock((d_node_outputs[0]->length/BLOCK_SIZE)+1, (d_node_outputs[1]->length/BLOCK_SIZE)+1);
+	calculate_next_layer_weight_changes<<<dimGrid, dimBlock>>>(*d_change.weights[0], *d_node_outputs[0], *d_node_outputs[1], *d_node_derivatives[1]);
+	int kernel_execution = cudaDeviceSynchronize();
+	if(kernel_execution){printf("failed with error %s\n", cudaGetErrorString((cudaError_t)kernel_execution));return kernel_execution;}
+	failed |= kernel_execution;
+	copy_device_to_host(d_change.weights[0], temp);
+	matrix *test = host_calculate_next_layer_weight_changes(h_node_outputs[0], h_node_outputs[1], h_node_derivatives[1]);
 
+	for(int row = 0; row < d_change.weights[0]->height; row++){
+		for(int col = 0; col < d_change.weights[0]->width; col++){
+			if(difference_tollerance(get_element(*temp, row, col), get_element(*test, row, col), 0.005)){
+				failed = 1;
+				printf("failed on element row %d, col %d with GPU %f, CPU %f\n", row, col, get_element(*temp, row, col), get_element(*test, row, col));
+			}
+		}
+	}
+	if(failed){
+		printf("\nfailed in calculate_next_layer_weight_changes() \n\n");
+		print_matrix(*temp);
+		printf("\n");
+		print_matrix(*test);
+	}
+	free_matrix(temp);
+	free_matrix(test);
+	return failed;
+}
 
+matrix* host_calculate_next_layer_weight_changes(vector* h_node_outputs_next_layer, vector* h_node_outputs_previous_layer, vector* h_node_derivatives_next_layer){
+	matrix* weight_changes = build_matrix(h_node_outputs_previous_layer->length, h_node_outputs_next_layer->length);
+	for(int row = 0; row < weight_changes->height; row++){
+		for(int col = 0; col < weight_changes->width; col++){
+			float value = sigmoid(get_element(*h_node_outputs_next_layer, col)) * get_element(*h_node_outputs_previous_layer, row) * get_element(*h_node_derivatives_next_layer, col);
+			set_element(*weight_changes, row, col, value);
+		}
+	}
+	return weight_changes;
+}
 
+int test_calculate_next_layer_bias_changes(){
+	printf("testing calculate_next_layer_bias_changes()\n\n");
+	int failed = 0;
+	vector *temp = build_vector(10);
+	int threadsPerBlock = BLOCK_SIZE;
+	int blocks = d_node_outputs[1]->length/BLOCK_SIZE + 1;
+	calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(*d_change.biases[1], *d_node_outputs[1], *d_node_derivatives[2]);
+	int kernel_execution = cudaDeviceSynchronize();
+	if(kernel_execution){printf("failed with error %s\n", cudaGetErrorString((cudaError_t)kernel_execution));return kernel_execution;}
+	failed |= kernel_execution;
+	copy_device_to_host(d_change.biases[1], temp);
+	vector *test = host_calculate_next_layer_bias_changes(*h_node_outputs[1], *h_node_derivatives[2]);
 
+	for(int element = 0; element < temp->length; element++){
+		if(difference_tollerance(get_element(*temp, element), get_element(*test, element), 0.05)){
+			failed = 1;
+			printf("failed on element element %d, with GPU %f, CPU %f\n", element, get_element(*temp, element), get_element(*test, element));
+		}
+	}
 
+	if(failed){
+		printf("failed in calculate_next_layer_bias_changes()\n");
+		print_vector(*temp);
+		print_vector(*test);
+	}
+	free_vector(temp);
+	free_vector(test);
+	return failed;
+}
 
-
-
-
-
+vector* host_calculate_next_layer_bias_changes(vector h_node_outputs, vector h_node_derivatives){
+	vector *bias_change = build_vector(h_node_outputs.length);
+	for(int element = 0; element < h_node_derivatives.length; element++){
+		float value = get_element(h_node_derivatives, element) * sigmoid(get_element(h_node_outputs, element));
+		set_element(*bias_change, element, value);
+	}
+	return bias_change;
+}
 
 
 int test_train(){
 	int failed = 0;
+	int dataset_size = 50;
+	database *h_sample = build_database(dataset_size);
+	database *d_sample = build_database(dataset_size);
+	float* errors_before = (float *)malloc(sizeof(float)*dataset_size);
+	float* errors_after = (float *)malloc(sizeof(float)*dataset_size);
+	for(int element = 0; element < dataset_size;element++){
+		errors_before[element] = error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
+	}
+	//train(&d_net, d_sample);
+	cudaDeviceSynchronize();
+	for(int element = 0; element < dataset_size;element++){
+		errors_after[element] = error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
+	}
+	free_database(h_sample);
 	return failed;
 }
+
 int test_backpropogate(){
 	int failed = 0;
-	printf("testing backpropogate\n\n");
-	network weight_and_bias_changes = cuda_build_network(layers, nodes);
+	printf("testing backpropogate()\n\n");
 	float error_previously = error_term(d_net, *h_input, *h_expected);
-	failed |= backpropogate(&d_net, &weight_and_bias_changes, h_input, h_expected);
-
-	network weight_and_bias_changes_host = build_network(layers, nodes);
-	for(int layer = 0; layer < layers; layer++){
-		printf("layer %d\nbiases\n", layer);
-		print_vector(*weight_and_bias_changes_host.biases[layer]);
-		printf("weights\n");
-		print_matrix(*weight_and_bias_changes_host.weights[layer]);
+	failed |= backpropogate(&d_net, &d_change, d_input, d_expected);
+	for(int layer = 0; layer < layers-1; layer++){
+		copy_device_to_host(d_change.biases[layer], h_change.biases[layer]);
+		copy_device_to_host(d_change.weights[layer], h_change.weights[layer]);
+		print_vector(*h_change.biases[layer]);
+		print_matrix(*h_change.weights[layer]);
 	}
-	apply_deltas(d_net, weight_and_bias_changes);
+	apply_deltas(d_net, d_change);
+	cudaDeviceSynchronize();
 	float error_after = error_term(d_net, *h_input, *h_expected);
-	if(error_after > error_previously){failed = 1;printf("error was increased\n");}
-	free(nodes);
+	if(error_after > error_previously){
+		failed = 1;
+		printf("error was increased from %f, to %f\n", error_previously, error_after);
+	}
+	printf("error was decreased from %f, to %f\n", error_previously, error_after);
 	if(failed){printf("failed in backpropogate()\n");}
-	return failed;
-}
-int test_calculate_next_layer_weight_changes(){
-	int failed = 0;
-	int threadsPerBlock = node_outputs[layers-2]->length;
-	int blocks = node_outputs[layers-1]->length;
-	calculate_next_layer_weight_changes<<<threadsPerBlock, blocks>>>(d_change, layers - 1, *node_outputs[layers-1], *node_derivatives[layers-1]);
-	if(failed){printf("failed in calculate_next_layer_weight_changes()\n");}
-	return failed;
-}
-int test_calculate_next_layer_bias_changes(){
-	int failed = 0;
-	if(failed){printf("failed in calculate_next_layer_bias_changes()\n");}
 	return failed;
 }
 
@@ -195,7 +270,7 @@ float error_term(network d_net, vector h_input, vector h_expected){
 	float error = 0.0;
 	vector *h_output = build_vector(d_net.nodes_in_layer[d_net.number_of_layers - 1]);
 	run_network(d_net, h_input, h_output);
-	for(int element = 0; element < h_output->length; element++){
+	for(int element = 0; element < h_expected.length; element++){
 		error += (get_element(*h_output, element) - get_element(h_expected, element))*(get_element(*h_output, element) - get_element(h_expected, element));
 	}
 	return error;
@@ -220,63 +295,21 @@ void initialize_globals(){
 	copy_host_to_device(h_input, d_input);
 	copy_host_to_device(h_expected, d_expected);
 
-	node_outputs = calculate_nodes(&d_net, h_input);
+	d_node_outputs = calculate_nodes(&d_net, h_input);
 	h_node_outputs = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_outputs[layer] = build_vector(10);
-		copy_device_to_host(node_outputs[layer], h_node_outputs[layer]);
+		copy_device_to_host(d_node_outputs[layer], h_node_outputs[layer]);
 	}
-	printf("here\n");
 
-	node_derivatives = calculate_node_derivatives(d_net, node_outputs, d_expected);
+	d_node_derivatives = calculate_node_derivatives(d_net, d_node_outputs, d_expected);
 	h_node_derivatives = (vector **)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_derivatives[layer] = build_vector(10);
-		copy_device_to_host(node_derivatives[layer], h_node_derivatives[layer]);
+		copy_device_to_host(d_node_derivatives[layer], h_node_derivatives[layer]);
 	}
 	printf("finished initializing\n");
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void free_globals(){
 	free_vector(h_input);
@@ -284,8 +317,6 @@ void free_globals(){
 	cuda_free_vector(d_input);
 	cuda_free_vector(d_expected);
 
-	//free_network(net);
-	//cuda_free_network(d_net);
 }
 
 vector* host_calculate_this_layer_node_derivatives(matrix connecting_weights, vector node_outputs_next_layer, vector node_derivatives_next_layer){
@@ -336,10 +367,10 @@ int test_backpropogation(){
 	failed |= test_calculate_last_layer_node_derivatives();
 	failed |= test_calculate_next_layer_node_derivatives();
 	failed |= test_calculate_node_derivatives();
-	failed |= 0;//test_calculate_next_layer_weight_changes();
-	failed |= 0;//test_calculate_next_layer_bias_changes();
-	failed |= 0;//testBackpropogate();
-	failed |= 0;//test_train();
+	failed |= test_calculate_next_layer_weight_changes();
+	failed |= test_calculate_next_layer_bias_changes();
+	failed |= test_backpropogate();
+	//failed |= test_train();
 
 	free_globals();
 	return failed;
