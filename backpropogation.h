@@ -3,7 +3,7 @@
 
 void train(network *n, database db);//returns current cudaStatus
 int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_expected);//returns current cudaStatus
-vector** calculate_nodes(network *d_net, vector *h_input);
+vector** calculate_nodes(network *d_net, vector *d_input);
 
 //training functions
 void apply_deltas(network d_net, network d_change);//returns current cudaStatus
@@ -14,11 +14,11 @@ void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output);//returns current cudaStatus
 
 
-void train(network *d_net, database *sample){
+void train(network *d_net, database *d_sample){
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
-	for(int i = 0; i < sample->size; i++){
+	for(int i = 0; i < d_sample->size; i++){
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
-		backpropogate(d_net, &weight_and_bias_changes_sample, sample->inputs[i], sample->outputs[i]);
+		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
 	apply_deltas(*d_net, weight_and_bias_changes);
@@ -113,9 +113,9 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 	return d_node_derivatives;
 }
 
-int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_expected){
+int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_expected){
 	int cuda_status = cudaSuccess;
-	vector **node_outputs = calculate_nodes(d_net, h_input);
+	vector **node_outputs = calculate_nodes(d_net, d_input);
 	vector **node_derivatives = calculate_node_derivatives(*d_net, node_outputs, d_expected);
 	cuda_status = cudaGetLastError();
 	if(cuda_status != cudaSuccess){return cuda_status;}
@@ -131,10 +131,9 @@ int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_
 	return cuda_status;
 }
 
-vector** calculate_nodes(network *d_net, vector *h_input){
+vector** calculate_nodes(network *d_net, vector *d_input){
 	vector** node_outputs = (vector**)malloc(sizeof(vector*)*d_net->number_of_layers);
-	node_outputs[0] = cuda_build_vector(h_input->length);
-	copy_host_to_device(h_input, node_outputs[0]);
+	node_outputs[0] = d_input;
 	for(int layer = 0; layer < d_net->number_of_layers - 1; layer++){
 		node_outputs[layer + 1] = cuda_build_vector(d_net->nodes_in_layer[layer+1]);
 		calculate_layer(*(d_net->weights[layer]), *(d_net->biases[layer]), *node_outputs[layer], *node_outputs[layer + 1]);

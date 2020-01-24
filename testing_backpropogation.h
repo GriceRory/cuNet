@@ -239,6 +239,12 @@ int test_train(){
 	for(int element = 0; element < dataset_size;element++){
 		errors_after[element] = error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 	}
+	for(int element = 0; element < dataset_size; element++){
+		if(errors_before[element] > errors_after[element]){
+			failed = 1;
+			printf("error was increased in element %d from %f, to %f\n", element, errors_before[element], errors_after[element]);
+		}
+	}
 	free_database(h_sample);
 	return failed;
 }
@@ -251,8 +257,6 @@ int test_backpropogate(){
 	for(int layer = 0; layer < layers-1; layer++){
 		copy_device_to_host(d_change.biases[layer], h_change.biases[layer]);
 		copy_device_to_host(d_change.weights[layer], h_change.weights[layer]);
-		print_vector(*h_change.biases[layer]);
-		print_matrix(*h_change.weights[layer]);
 	}
 	apply_deltas(d_net, d_change);
 	cudaDeviceSynchronize();
@@ -261,7 +265,6 @@ int test_backpropogate(){
 		failed = 1;
 		printf("error was increased from %f, to %f\n", error_previously, error_after);
 	}
-	printf("error was decreased from %f, to %f\n", error_previously, error_after);
 	if(failed){printf("failed in backpropogate()\n");}
 	return failed;
 }
@@ -295,7 +298,7 @@ void initialize_globals(){
 	copy_host_to_device(h_input, d_input);
 	copy_host_to_device(h_expected, d_expected);
 
-	d_node_outputs = calculate_nodes(&d_net, h_input);
+	d_node_outputs = calculate_nodes(&d_net, d_input);
 	h_node_outputs = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_outputs[layer] = build_vector(10);
