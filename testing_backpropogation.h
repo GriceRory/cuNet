@@ -225,27 +225,36 @@ vector* host_calculate_next_layer_bias_changes(vector h_node_outputs, vector h_n
 
 
 int test_train(){
+	printf("testing train()\n\n");
 	int failed = 0;
-	int dataset_size = 50;
+	int dataset_size = 3;
 	database *h_sample = build_database(dataset_size);
 	database *d_sample = build_database(dataset_size);
-	float* errors_before = (float *)malloc(sizeof(float)*dataset_size);
-	float* errors_after = (float *)malloc(sizeof(float)*dataset_size);
-	for(int element = 0; element < dataset_size;element++){
-		errors_before[element] = error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
-	}
-	//train(&d_net, d_sample);
+	randomize_database(*h_sample, max_biases, max_biases, nodes[0], nodes[layers-1]);
+	copy_host_to_device(h_sample, d_sample);
 	cudaDeviceSynchronize();
-	for(int element = 0; element < dataset_size;element++){
-		errors_after[element] = error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
-	}
+	printf("database construction complete\n");
+	float errors_before = 0;
+	float errors_after = 0;
 	for(int element = 0; element < dataset_size; element++){
-		if(errors_before[element] > errors_after[element]){
-			failed = 1;
-			printf("error was increased in element %d from %f, to %f\n", element, errors_before[element], errors_after[element]);
-		}
+		printf("calculating pre error term\n");
+		errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 	}
+	printf("done calculating pre error terms\n");
+	train(&d_net, d_sample);
+	cudaDeviceSynchronize();
+	for(int element = 0; element < dataset_size; element++){
+		printf("calculating post error term\n");
+		errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
+	}
+	printf("done calculating post error terms\n");
+	if(errors_before < errors_after){
+		failed = 1;
+		printf("error was increased in element from %f, to %f\n",  errors_before, errors_after);
+	}
+
 	free_database(h_sample);
+	cuda_free_database(d_sample);
 	return failed;
 }
 
@@ -373,7 +382,7 @@ int test_backpropogation(){
 	failed |= test_calculate_next_layer_weight_changes();
 	failed |= test_calculate_next_layer_bias_changes();
 	failed |= test_backpropogate();
-	//failed |= test_train();
+	failed |= test_train();
 
 	free_globals();
 	return failed;
