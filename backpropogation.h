@@ -15,16 +15,13 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 
 
 void train(network *d_net, database *d_sample){
-	printf("into training\n");
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	for(int i = 0; i < d_sample->size; i++){
-		printf("working on a sample\n");
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
 	apply_deltas(*d_net, weight_and_bias_changes);
-	printf("out of training\n");
 }
 
 void apply_deltas(network d_net, network d_change){
@@ -111,7 +108,6 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 		blocks = d_net.nodes_in_layer[layer];
 		calculate_this_layer_node_derivatves<<<threadsPerBlock, blocks>>>(*d_net.weights[layer], *d_node_outputs[layer+1], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
 		cudaDeviceSynchronize();
-		sleep(2);
 	}
 	return d_node_derivatives;
 }

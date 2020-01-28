@@ -110,22 +110,12 @@ __global__ void scalar_multiply(vector d_vector, float scalar){
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
 	__shared__ float reduced_sum[BLOCK_SIZE];
-	//if the column(block) is outside the column width.
+	reduced_sum[threadIdx.x] = 0;
 	int col = blockIdx.x;
 	if(col >= d_M.width){return;}
-	float vector_value = 0.0;
-	float matrix_value = 0.0;
 
-	//for each subset of the vector matrix multiplication of size BLOCK_SIZE
-	for(int thread_group = 0; thread_group < (d_input.length/BLOCK_SIZE) + 1; thread_group++){
-		//calculate the index we are at in this subset
-		int row = threadIdx.x + thread_group*BLOCK_SIZE;
-		//if the index is inside the bounds calculate the component
-		if(row < d_input.length){
-			vector_value = get_element(d_input, row);
-			matrix_value = get_element(d_M, row, col);
-			reduced_sum[threadIdx.x] += vector_value * matrix_value;
-		}
+	for(int row = threadIdx.x; row < d_input.length; row += BLOCK_SIZE){
+		reduced_sum[threadIdx.x] += get_element(d_input, row) * get_element(d_M, row, col);
 	}
 	//calculate the reduced sum of the components in this subset
 	reduce(reduced_sum);

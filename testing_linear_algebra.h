@@ -144,12 +144,6 @@ int test_matrix_multiply(int height, int width, float max){
 	int free_d_in = cuda_free_vector(d_in);
 	int free_d_out = cuda_free_vector(d_out);
 
-	sleep(2);
-	/*
-	struct timespec tim, tim2;
-	tim.tv_sec = 0;
-	tim.tv_nsec = 650000000;
-	nanosleep(&tim, &tim2);*/
 	if(failed){
 		printf("failed matrix multiply\n\n\n\n");
 	}

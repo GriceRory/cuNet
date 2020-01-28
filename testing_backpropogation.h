@@ -233,21 +233,16 @@ int test_train(){
 	randomize_database(*h_sample, max_biases, max_biases, nodes[0], nodes[layers-1]);
 	copy_host_to_device(h_sample, d_sample);
 	cudaDeviceSynchronize();
-	printf("database construction complete\n");
 	float errors_before = 0;
 	float errors_after = 0;
 	for(int element = 0; element < dataset_size; element++){
-		printf("calculating pre error term\n");
 		errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 	}
-	printf("done calculating pre error terms\n");
 	train(&d_net, d_sample);
 	cudaDeviceSynchronize();
 	for(int element = 0; element < dataset_size; element++){
-		printf("calculating post error term\n");
 		errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 	}
-	printf("done calculating post error terms\n");
 	if(errors_before < errors_after){
 		failed = 1;
 		printf("error was increased in element from %f, to %f\n",  errors_before, errors_after);
@@ -328,7 +323,6 @@ void free_globals(){
 	free_vector(h_expected);
 	cuda_free_vector(d_input);
 	cuda_free_vector(d_expected);
-
 }
 
 vector* host_calculate_this_layer_node_derivatives(matrix connecting_weights, vector node_outputs_next_layer, vector node_derivatives_next_layer){
