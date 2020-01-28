@@ -4,7 +4,7 @@ int test_backpropogate();
 int test_calculate_nodes();
 int test_calculate_next_layer_weight_changes();
 int test_calculate_next_layer_bias_changes();
-int test_calculate_next_layer_node_derivatives();
+int test_calculate_this_layer_node_derivatives();
 int test_calculate_node_derivatives();
 int test_calculate_last_layer_node_derivatives();
 
@@ -61,9 +61,9 @@ int test_calculate_nodes(){
 	return failed;
 }
 
-int test_calculate_next_layer_node_derivatives(){
+int test_calculate_this_layer_node_derivatives(){
 	int failed = 0;
-	printf("testing calculate_next_layer_node_derivatives()\n\n");
+	printf("testing calculate_this_layer_node_derivatives()\n\n");
 
 	int threadsPerBlock = BLOCK_SIZE;
 	int blocks = h_net.nodes_in_layer[layers - 2];
@@ -86,7 +86,7 @@ int test_calculate_next_layer_node_derivatives(){
 	failed |= cudaDeviceSynchronize();
 	cuda_free_vector(node_derivatives_this_layer);
 	//free_vector(host_node_derivatives_this_layer);
-	if(failed){printf("failed in testing calculate_next_layer_node_derivatives\n");}
+	if(failed){printf("failed in testing calculate_this_layer_node_derivatives\n");}
 	return failed;
 }
 
@@ -371,7 +371,7 @@ int test_backpropogation(){
 	int failed = 0;
 	failed |= test_calculate_nodes();//done
 	failed |= test_calculate_last_layer_node_derivatives();
-	failed |= test_calculate_next_layer_node_derivatives();
+	failed |= test_calculate_this_layer_node_derivatives();
 	failed |= test_calculate_node_derivatives();
 	failed |= test_calculate_next_layer_weight_changes();
 	failed |= test_calculate_next_layer_bias_changes();

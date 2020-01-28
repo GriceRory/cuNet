@@ -65,11 +65,8 @@ __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_we
 	int nodeFrom = blockIdx.x;
 	if(nodeFrom >= device_node_derivatives_this_layer.length){return;}
 	__shared__ float node_derivative_components[BLOCK_SIZE];
-
-	for(int thread_group = 0; thread_group < (device_node_derivatives_next_layer.length/BLOCK_SIZE) + 1; thread_group++){
-		nodeTo = threadIdx.x + thread_group*BLOCK_SIZE;
-		if(nodeTo >= device_node_derivatives_next_layer.length){return;}
-
+	node_derivative_components[threadIdx.x] = 0;
+	for(; nodeTo < device_node_derivatives_next_layer.length; nodeTo += BLOCK_SIZE){
 		float dE_by_dNodeOutputNextLayer = get_element(device_node_derivatives_next_layer, nodeTo);
 		float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid_derivative(get_element(device_node_outputs_next_layer, nodeTo));
 		float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = get_element(device_connecting_weights, nodeFrom, nodeTo);
