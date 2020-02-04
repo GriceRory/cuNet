@@ -11,14 +11,17 @@ typedef struct{
 
 //memory management
 database* build_database(int size);
-int read_database(database h_db, char *file_name);
-int save_database(database *h_db, char *file_name);
+int read_database(database *h_db, char *inputs, char *outputs);
+int save_database(database *h_db, char *inputs, char *outputs);
+int read_database_inputs(database *h_db, char *file_name);
+int read_database_outputs(database *h_db, char *file_name);
+int save_database_inputs(database *h_db, char *file_name);
+int save_database_outputs(database *h_db, char *file_name);
 void copy_host_to_device(database *host, database *device);
 void copy_device_to_host(database *device, database *host);
 void randomize_database(database h_db, float max_input, float max_output, int input_length, int output_length);
 void read_vector(vector *h_v, int vector_length, FILE *file_pointer);
 void write_vector(vector *h_v, FILE *file_pointer);
-int read_int(FILE *file_pointer);
 void free_database(database *h_db);
 void cuda_free_database(database *d_db);
 
@@ -64,46 +67,6 @@ void write_vector(vector *h_v, FILE *file_pointer){
 	fprintf(file_pointer, "\n");
 }
 
-int read_int(FILE *file_pointer){
-	int value = 0;
-	char c = fgetc(file_pointer);
-	while(c == '0' || c == '1' || c == '2' ||	c == '3' || c == '4'
-			|| c == '5' || c == '6' || c == '7' || c == '8' || c == '9' ){
-		value *= 10;
-		value += c;
-	}
-	return value;
-}
-
-int readDatabase(database *db, char *f){
-	int failed = 0;
-	FILE *file_pointer = fopen(f, "r");
-	if(file_pointer == NULL){return 1;}
-
-	db->size = read_int(file_pointer);
-	int input_length = read_int(file_pointer);
-	int output_length = read_int(file_pointer);
-	db->inputs = (vector**)malloc(sizeof(vector*)*db->size);
-	db->outputs = (vector**)malloc(sizeof(vector*)*db->size);
-
-	for(int line = 0; line < db->size; line++){
-		read_vector(db->inputs[line], input_length, file_pointer);
-		read_vector(db->outputs[line], output_length, file_pointer);
-	}
-	fclose(file_pointer);
-	return failed;
-}
-int save_database(database *h_db, char *file_name){
-	FILE *file_pointer = fopen(file_name, "w");
-	if(file_pointer == NULL){return 0;}
-	fprintf(file_pointer, "%d,%d,%d\n", h_db->size, h_db->inputs[0]->length, h_db->outputs[0]->length);
-	for(int inputOutputPair = 0; inputOutputPair < h_db->size; inputOutputPair++){
-		write_vector(h_db->inputs[inputOutputPair], file_pointer);
-		write_vector(h_db->outputs[inputOutputPair], file_pointer);
-	}
-	fclose(file_pointer);
-	return 1;
-}
 void copy_host_to_device(database *host, database *device){
 	device->size = host->size;
 	for(int pair = 0; pair < host->size; pair++){
@@ -138,4 +101,35 @@ void cuda_free_database(database *d_db){
 		cuda_free_vector(d_db->outputs[element]);
 	}
 	free(d_db);
+}
+
+
+
+int read_database(database *h_db, char *inputs, char *outputs){
+	int in = read_database_inputs(h_db, inputs);
+	int out = read_database_outputs(h_db, outputs);
+	return in || out;
+}
+int save_database(database *h_db, char *inputs, char *outputs){
+	int in = save_database_inputs(h_db, inputs);
+	int out = save_database_outputs(h_db, outputs);
+	return in || out;
+}
+
+
+int read_database_inputs(database *h_db, char *file_name){
+	FILE *inputs = fopen(file_name, "r");
+	return 1;
+}
+int read_database_outputs(database *h_db, char *file_name){
+	FILE *outputs = fopen(file_name, "r");
+	return 1;
+}
+int save_database_inputs(database *h_db, char *file_name){
+	FILE *inputs = fopen(file_name, "w");
+	return 1;
+}
+int save_database_outputs(database *h_db, char *file_name){
+	FILE *outputs = fopen(file_name, "w");
+	return 1;
 }

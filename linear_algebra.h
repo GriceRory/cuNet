@@ -255,7 +255,7 @@ void print_matrix(matrix h_m){
 }
 
 void print_vector(vector h_v){
-	printf("[");
+	printf("length = %d\n[", h_v.length);
 	for(int i = 0; i < h_v.length-1; i++){
 		printf("%3.3f, ", get_element(h_v, i));
 	}

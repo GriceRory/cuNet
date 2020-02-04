@@ -27,13 +27,13 @@ void train(network *d_net, database *d_sample){
 void apply_deltas(network d_net, network d_change){
 	int threadsPerBlock;
 	int blocks;
-	for(int layer = 0; layer < d_net.number_of_layers; layer++){
+	for(int layer = 0; layer < d_net.number_of_layers - 1; layer++){
 		threadsPerBlock = (d_net.weights[layer])->height;
 		blocks = (d_net.weights[layer])->width;
-		matrix_add<<<threadsPerBlock, blocks>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
+		matrix_add<<<blocks, threadsPerBlock>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
 		threadsPerBlock = BLOCK_SIZE;
 		blocks = (d_net.biases[layer])->length/threadsPerBlock + 1;
-		vector_add<<<threadsPerBlock, blocks>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
+		vector_add<<<blocks, threadsPerBlock>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
 	}
 }
 
@@ -71,7 +71,7 @@ __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_we
 		float dNodeOutputNextLayer_by_dNodeInputNextLayer = sigmoid_derivative(get_element(device_node_outputs_next_layer, nodeTo));
 		float dNodeInputNextLayer_by_dNodeOutputThisLayerComponent = get_element(device_connecting_weights, nodeFrom, nodeTo);
 		//the chain rule lets us calculate each component
-		node_derivative_components[nodeTo] += dE_by_dNodeOutputNextLayer *
+		node_derivative_components[threadIdx.x] += dE_by_dNodeOutputNextLayer *
 				dNodeOutputNextLayer_by_dNodeInputNextLayer *
 				dNodeInputNextLayer_by_dNodeOutputThisLayerComponent;
 	}
@@ -84,8 +84,8 @@ void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives
 	int threadsPerBlock = BLOCK_SIZE;
 	int blocks = (d_last_layer_node_derivatives->length / BLOCK_SIZE)+1;
 
-	vector_subtract<<<threadsPerBlock, blocks>>>(*d_last_layer_node_derivatives, *d_expected_output, *d_node_outputs_last_layer);
-	scalar_multiply<<<threadsPerBlock, blocks>>>(*d_last_layer_node_derivatives, 2);
+	vector_subtract<<<blocks, threadsPerBlock>>>(*d_last_layer_node_derivatives, *d_expected_output, *d_node_outputs_last_layer);
+	scalar_multiply<<<blocks, threadsPerBlock>>>(*d_last_layer_node_derivatives, 2);
 }
 
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output){
@@ -103,7 +103,7 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 	//calculates each layer then checks for cuda errors.
 	for(int layer = d_net.number_of_layers - 2; layer >= 0; --layer){
 		blocks = d_net.nodes_in_layer[layer];
-		calculate_this_layer_node_derivatves<<<threadsPerBlock, blocks>>>(*d_net.weights[layer], *d_node_outputs[layer+1], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
+		calculate_this_layer_node_derivatves<<<blocks, threadsPerBlock>>>(*d_net.weights[layer], *d_node_outputs[layer+1], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
 		cudaDeviceSynchronize();
 	}
 	return d_node_derivatives;
@@ -118,12 +118,13 @@ int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_
 	for(int layer = 0; layer < d_net->number_of_layers - 1; ++layer){
 		int threadsPerBlock = BLOCK_SIZE;
 		int blocks = BLOCK_SIZE / node_outputs[layer+1]->length + 1;
-		calculate_next_layer_bias_changes<<<threadsPerBlock, blocks>>>(*d_change->biases[layer], *node_outputs[layer+1], *node_derivatives[layer+1]);
+		calculate_next_layer_bias_changes<<<blocks, threadsPerBlock>>>(*d_change->biases[layer], *node_outputs[layer+1], *node_derivatives[layer+1]);
 		dim3 dimGrid(BLOCK_SIZE, BLOCK_SIZE);
 		dim3 dimBlock((d_change->weights[layer]->height/BLOCK_SIZE)+1, (d_change->weights[layer]->width/BLOCK_SIZE)+1);
 		calculate_next_layer_weight_changes<<<dimGrid, dimBlock>>>(*d_change->weights[layer], *node_outputs[layer+1], *node_outputs[layer], *node_derivatives[layer+1]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
+	cudaDeviceSynchronize();
 	return cuda_status;
 }
 
