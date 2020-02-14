@@ -35,6 +35,9 @@ __global__ void matrix_add(matrix d_target, matrix d_addition);
 __global__ void vector_add(vector d_target, vector d_addition);
 __global__ void vector_subtract(vector d_output, vector d_value, vector d_subtraction);
 __global__ void scalar_multiply(vector d_vector, float scalar);
+__global__ void scalar_multiply(matrix d_matrix, float scalar);
+int equals(vector u, vector v);
+float dist(vector u, vector v);
 
 //matrix memory
 matrix* cuda_build_matrix(int height, int width);
@@ -108,6 +111,34 @@ __global__ void scalar_multiply(vector d_vector, float scalar){
 	set_element(d_vector, idx, value);
 }
 
+__global__ void scalar_multiply(matrix d_matrix, float scalar){
+	if(threadIdx.x + blockIdx.x*blockDim.x >= d_matrix.height * d_matrix.width){return;}
+	int row = (threadIdx.x + blockIdx.x*blockDim.x)/d_matrix.width;
+	int col = (threadIdx.x + blockIdx.x*blockDim.x) - d_matrix.width*row;
+	if(row >= d_matrix.height || col >= d_matrix.width){return;}
+	float value = get_element(d_matrix, row, col) * scalar;
+	set_element(d_matrix, row, col, value);
+}
+
+int equals(vector u, vector v){
+	if(u.length != v.length){return 0;}
+	for(int i = 0; i < u.length; i++){
+		if(get_element(u, i) != get_element(v, i)){
+			return 0;
+		}
+	}
+	return 1;
+}
+
+//this could be made into a device function for a little bit of extra speed.
+float dist(vector u, vector v){
+	float distance = 0;
+	for(int i = 0; i < u.length; i++){
+		distance += get_element(u, i) * get_element(v, i);
+	}
+	return distance;
+}
+
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
 	__shared__ float reduced_sum[BLOCK_SIZE];
 	reduced_sum[threadIdx.x] = 0;
@@ -152,7 +183,7 @@ matrix* build_matrix(int height, int width){
 int copy_device_to_host(matrix *device, matrix *host){
 	if(device->width != host->width || device->height != host->height){
 		host->width = device->width;
-		host->width = device->width;
+		host->height = device->height;
 		free(host->elements);
 		host->elements = (float*)malloc(sizeof(float) * device->width * device->height);
 	}
@@ -162,7 +193,7 @@ int copy_device_to_host(matrix *device, matrix *host){
 int copy_host_to_device(matrix *host, matrix *device){
 	if(device->width != host->width || device->height != host->height){
 		device->width = host->width;
-		device->width = host->width;
+		device->height = host->height;
 		cudaFree(device->elements);
 		cudaMalloc(&(device->elements), sizeof(float) * device->width * device->height);
 	}

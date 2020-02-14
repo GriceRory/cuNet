@@ -227,7 +227,7 @@ vector* host_calculate_next_layer_bias_changes(vector h_node_outputs, vector h_n
 int test_train(){
 	printf("testing train()\n\n");
 	int failed = 0;
-	int dataset_size = 10;
+	int dataset_size = 100;
 	database *h_sample = build_database(dataset_size);
 	database *d_sample = build_database(dataset_size);
 	randomize_database(*h_sample, max_biases, max_biases, nodes[0], nodes[layers-1]);
@@ -238,7 +238,7 @@ int test_train(){
 	for(int element = 0; element < dataset_size; element++){
 		errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 	}
-	train(&d_net, d_sample);
+	train(&d_net, d_sample, 0.001);
 	cudaDeviceSynchronize();
 	for(int element = 0; element < dataset_size; element++){
 		errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);

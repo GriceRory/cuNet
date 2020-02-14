@@ -24,6 +24,7 @@ void read_vector(vector *h_v, int vector_length, FILE *file_pointer);
 void write_vector(vector *h_v, FILE *file_pointer);
 void free_database(database *h_db);
 void cuda_free_database(database *d_db);
+database* sample_database(database *db, int size);
 
 database* build_database(int size){
 	database *db = (database*)malloc(sizeof(database));
@@ -31,6 +32,25 @@ database* build_database(int size){
 	db->inputs = (vector**)malloc(size*sizeof(vector*));
 	db->outputs = (vector**)malloc(size*sizeof(vector*));
 	return db;
+}
+
+database* sample_database(database *db, int size){
+	database* sample = build_database(size);
+	int *indices = (int*)malloc(sizeof(int)*size);
+	for(int element = 0; element < size; ++sample){
+		int index = rand()%db->size;
+		for(int i = 0; i < element; ++i){
+			if(index == indices[i]){
+				index = rand()%db->size;
+				i = 0;
+			}
+		}
+		indices[element] = index;
+
+		sample->inputs[element] = db->inputs[indices[element]];
+		sample->outputs[element] = db->outputs[indices[element]];
+	}
+	return sample;
 }
 
 void randomize_database(database h_db, float max_input, float max_output, int input_length, int output_length){

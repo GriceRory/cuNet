@@ -1,7 +1,7 @@
 #include "database.h"
 
 
-void train(network *n, database db);//returns current cudaStatus
+void train(network *n, database db, float learning_factor);//returns current cudaStatus
 int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_expected);//returns current cudaStatus
 vector** calculate_nodes(network *d_net, vector *d_input);
 
@@ -12,15 +12,17 @@ __global__ void calculate_next_layer_bias_changes(vector d_change, vector d_node
 __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_weights, vector device_node_outputs_next_layer, vector device_node_derivatives_next_layer, vector device_node_derivatives_this_layer);
 void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives, vector *d_expected_output, vector *d_node_outputs_last_layer);
 vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output);//returns current cudaStatus
+float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs);
+vector classify(vector v, vector **possible_outputs, int number_of_possible_outputs);
 
-
-void train(network *d_net, database *d_sample){
+void train(network *d_net, database *d_sample, float learning_factor){
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	for(int i = 0; i < d_sample->size; i++){
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
 	}
+	scalar_multiply(weight_and_bias_changes, learning_factor);
 	apply_deltas(*d_net, weight_and_bias_changes);
 }
 
@@ -137,3 +139,30 @@ vector** calculate_nodes(network *d_net, vector *d_input){
 	}
 	return node_outputs;
 }
+
+float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs){
+	float probability = 0;
+	vector *h_output = build_vector(1);
+	for(int element = 0; element < h_db.size; ++element){
+		run_network(d_net, *h_db.inputs[element], h_output);
+		vector classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
+		if(equals(classification, *h_db.outputs[element])){
+			++probability;
+		}
+	}
+	return probability/h_db.size;
+}
+
+vector classify(vector v, vector **possible_outputs, int number_of_possible_outputs){
+	float shortest = dist(v, *possible_outputs[0]);
+	int index = 0;
+	for(int possible = 1; possible < number_of_possible_outputs; ++possible){
+		float distance = dist(v, *possible_outputs[possible]);
+		if(distance < shortest){
+			index = possible;
+			shortest = distance;
+		}
+	}
+	return *possible_outputs[index];
+}
+

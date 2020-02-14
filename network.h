@@ -31,6 +31,7 @@ __device__ __host__ void set_weight(network h_net, int layer, int node_from, int
 __device__ __host__ float get_bias(network h_net, int layer, int node);
 __device__ __host__ void set_bias(network h_net, int layer, int node, float value);
 void print_network(network h_network);
+void scalar_multiply(network weight_and_bias_changes, float learning_factor);
 
 //signal functions and derivative calculators
 __device__ __host__ float sigmoid(float input);
@@ -67,6 +68,16 @@ network cuda_build_network(int layers, int *nodes_in_layer){
 	}
 	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
 	return n;
+}
+
+void scalar_multiply(network d_net, float learning_factor){
+	for(int layer = 0; layer < d_net.number_of_layers - 1; layer++){
+		int threads_per_block = BLOCK_SIZE;
+		int blocks = (d_net.weights[layer]->height) * (d_net.weights[layer]->width)/threads_per_block +1;
+		scalar_multiply<<<blocks, threads_per_block>>>(*d_net.weights[layer], learning_factor);
+		blocks = d_net.biases[layer]->length/threads_per_block + 1;
+		scalar_multiply<<<blocks, threads_per_block>>>(*d_net.biases[layer], learning_factor);
+	}
 }
 
 //given a network, input on device memory and a pointer to an output on host memory,
