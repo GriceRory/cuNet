@@ -141,6 +141,7 @@ float dist(vector u, vector v){
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
 	__shared__ float reduced_sum[BLOCK_SIZE];
+	if(! (threadIdx.x < BLOCK_SIZE)){return;}
 	reduced_sum[threadIdx.x] = 0;
 	int col = blockIdx.x;
 	if(col >= d_M.width){return;}

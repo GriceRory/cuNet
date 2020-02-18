@@ -8,6 +8,7 @@ database* build_minst_testing_database();
 
 
 int test_minst(){
+	printf("testing MINST\n");
 	int failed = 0;
 	int sample_size = 300;
 	database *training = build_minst_training_database();
@@ -18,6 +19,7 @@ int test_minst(){
 
 	copy_host_to_device(training, d_training);
 	copy_host_to_device(testing, d_testing);
+
 
 	database *d_training_sample = sample_database(d_training, sample_size);
 
@@ -38,16 +40,16 @@ int test_minst(){
 		set_element(*possible[i], i, 1);
 	}
 
-	printf("starting training\n");
+	printf("starting training\n\n\n");
 	float probability_correct = 0.0;//correct(d_net, *training, possible, 10);
-	for(int epoc = 0; epoc < 100; ++epoc){
+	for(int epoc = 0; epoc < 2; ++epoc){
 		printf("%i th epoc beginning\n", epoc);
 		train(&d_net, d_training_sample, -0.005);
-		d_training_sample = sample_database(d_training, ++sample_size);
+		d_training_sample = sample_database(d_training, sample_size+=10);
 
 		printf("epoc training complete\n\n");
 		if(!epoc%10){
-			probability_correct = 0.0;//correct(d_net, *training, possible, 10);
+			probability_correct = correct(d_net, *training, possible, 10);
 		}
 
 		float error = 0.0;
@@ -55,14 +57,14 @@ int test_minst(){
 			error += error_term(d_net, *training->inputs[i], *training->outputs[i]);
 		}
 		printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error);
-		//if(probability_correct >  0.99){break;}
-	}
-
-	if(0.75 > correct(d_net, *testing, possible, 10)){
-		failed = 1;
+		if(probability_correct >  0.99){break;}
 	}
 
 	float testing_success_probability = correct(d_net, *testing, possible, 10);
+	if(0.75 > testing_success_probability){
+		failed = 1;
+	}
+
 	printf("testing probability of success was %f\n", testing_success_probability);
 	return failed;
 }
@@ -84,6 +86,7 @@ database* build_minst_training_database(){
 		}
 	}
 	fclose(inputs);
+	printf("read training inputs\n");
 
 	uint8_t image_label;
 	FILE *outputs = fopen("/home/rory/Documents/MNIST/train-labels.idx1-ubyte", "r");
@@ -94,6 +97,7 @@ database* build_minst_training_database(){
 		set_element(*training->outputs[image], image_label, 1);
 	}
 	fclose(outputs);
+	printf("read training outputs\n");
 	return training;
 }
 
@@ -113,6 +117,7 @@ database* build_minst_testing_database(){
 		}
 	}
 	fclose(inputs);
+	printf("read testing inputs\n");
 
 	uint8_t image_label;
 	FILE *outputs = fopen("/home/rory/Documents/MNIST/t10k-labels.idx1-ubyte", "r");
@@ -123,5 +128,6 @@ database* build_minst_testing_database(){
 		set_element(*testing->outputs[image], image_label, 1);
 	}
 	fclose(outputs);
+	printf("read testing outputs\n");
 	return testing;
 }

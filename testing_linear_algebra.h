@@ -90,8 +90,6 @@ int test_vector_memory_functions(int length, float max){
 }
 
 int test_algebra_functions(){
-	printf("testing algebra functions\n");
-
 	int multiply_failed = test_matrix_multiply(30, 20, 20.0);
 	int matrix_add_failed = test_matrix_add(100, 100, 20.0);
 	int vector_add_failed = test_vector_add(1011, 20.0);
@@ -234,6 +232,6 @@ int test_linear_algebra(){
 	printf("testing linear_algebra.\n\n");
 	int memory = test_memory_functions();
 	int algebra = test_algebra_functions();
-	printf("finished testing linear_algebra.h\n\n\n");
+	printf("finished testing linear_algebra.h\n");
 	return memory || algebra;
 }

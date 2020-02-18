@@ -37,7 +37,7 @@ database* build_database(int size){
 database* sample_database(database *db, int size){
 	database* sample = build_database(size);
 	int *indices = (int*)malloc(sizeof(int)*size);
-	for(int element = 0; element < size; ++sample){
+	for(int element = 0; element < size; ++element){
 		int index = rand()%db->size;
 		for(int i = 0; i < element; ++i){
 			if(index == indices[i]){
