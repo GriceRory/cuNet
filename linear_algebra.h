@@ -57,25 +57,25 @@ int copy_host_to_device(vector *host, vector *device);
 int copy_device_to_host(vector *device, vector *host);
 
 __host__ __device__ float get_element(matrix m, int row, int col){
-	if(row > m.height || col > m.width){
+	if(row >= m.height || col >= m.width){
 		return 0.0/0.0;
 	}
 	return m.elements[row*m.width + col];
 }
 __host__ __device__ void set_element(matrix m, int row, int col, float element){
-	if(row > m.height || col > m.width){
+	if(row >= m.height || col >= m.width){
 		return;
 	}
 	m.elements[row*m.width + col] = element;
 }
 __host__ __device__ float get_element(vector v, int element){
-	if(v.length < element){
+	if(v.length <= element){
 		return 0.0/0.0;
 	}
 	return v.elements[element];;
 }
 __host__ __device__ void set_element(vector v, int element, float value){
-	if(v.length < element){
+	if(v.length <= element){
 		return;
 	}
 	v.elements[element] = value;
@@ -141,13 +141,16 @@ float dist(vector u, vector v){
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){
 	__shared__ float reduced_sum[BLOCK_SIZE];
-	if(! (threadIdx.x < BLOCK_SIZE)){return;}
+	if(threadIdx.x >= BLOCK_SIZE){return;}
 	reduced_sum[threadIdx.x] = 0;
 	int col = blockIdx.x;
 	if(col >= d_M.width){return;}
 
 	for(int row = threadIdx.x; row < d_input.length; row += BLOCK_SIZE){
-		reduced_sum[threadIdx.x] += get_element(d_input, row) * get_element(d_M, row, col);
+		float val = get_element(d_input, row) * get_element(d_M, row, col);
+		if(val != 0.0/0.0){
+			reduced_sum[threadIdx.x] += val;
+		}
 	}
 	//calculate the reduced sum of the components in this subset
 	reduce(reduced_sum);

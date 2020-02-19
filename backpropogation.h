@@ -16,7 +16,11 @@ float correct(network d_net, database h_db, vector** possible_outputs, int numbe
 vector classify(vector v, vector **possible_outputs, int number_of_possible_outputs);
 
 void train(network *d_net, database *d_sample, float learning_factor){
-	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
+	int nodes[d_net->number_of_layers];
+	for(int i = 0; i < d_net->number_of_layers; ++i){
+		nodes[i] = d_net->nodes_in_layer[i];
+	}
+	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, nodes);
 	for(int i = 0; i < d_sample->size; i++){
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
@@ -24,6 +28,7 @@ void train(network *d_net, database *d_sample, float learning_factor){
 	}
 	scalar_multiply(weight_and_bias_changes, learning_factor);
 	apply_deltas(*d_net, weight_and_bias_changes);
+	cuda_free_network(weight_and_bias_changes);
 }
 
 void apply_deltas(network d_net, network d_change){
@@ -147,6 +152,11 @@ float correct(network d_net, database h_db, vector** possible_outputs, int numbe
 		run_network(d_net, *h_db.inputs[element], h_output);
 		vector classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
 		if(equals(classification, *h_db.outputs[element])){
+			printf("\n\n");
+			print_vector(classification);
+			print_vector(*h_db.outputs[element]);
+			print_vector(*h_output);
+			printf("\n\n");
 			++probability;
 		}
 	}

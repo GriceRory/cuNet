@@ -48,7 +48,7 @@ network build_network(int layers, int *nodes_in_layer){
 	n.weights = (matrix**)malloc((layers-1)*sizeof(matrix*));
 	for(int i = 0; i < layers-1; ++i){
 		n.nodes_in_layer[i] = nodes_in_layer[i];
-		n.biases[i] = build_vector(nodes_in_layer[i]);
+		n.biases[i] = build_vector(nodes_in_layer[i+1]);
 		n.weights[i] = build_matrix(nodes_in_layer[i], nodes_in_layer[i+1]);
 	}
 	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
@@ -63,7 +63,7 @@ network cuda_build_network(int layers, int *nodes_in_layer){
 	n.weights = (matrix**)malloc((layers-1)*sizeof(matrix*));
 	for(int i = 0; i < layers - 1; i ++){
 		n.nodes_in_layer[i] = nodes_in_layer[i];
-		n.biases[i] = cuda_build_vector(nodes_in_layer[i]);
+		n.biases[i] = cuda_build_vector(nodes_in_layer[i+1]);
 		n.weights[i] = cuda_build_matrix(nodes_in_layer[i], nodes_in_layer[i+1]);
 	}
 	n.nodes_in_layer[layers-1] = nodes_in_layer[layers-1];
@@ -85,15 +85,13 @@ void scalar_multiply(network d_net, float learning_factor){
 int run_network(network d_net, vector h_input, vector *h_output){
 	vector *current_node_values = cuda_build_vector(d_net.nodes_in_layer[0]);
 	vector *next_node_values = cuda_build_vector(d_net.nodes_in_layer[1]);
-
 	copy_host_to_device(&h_input, current_node_values);
-
 	for(int current_layer = 0; current_layer < d_net.number_of_layers - 1; current_layer++){
 		calculate_layer(*d_net.weights[current_layer], *d_net.biases[current_layer], *current_node_values, *next_node_values);
 		cuda_free_vector(current_node_values);
 		current_node_values = (vector*)malloc(sizeof(vector*));
 		current_node_values = next_node_values;
-		next_node_values = cuda_build_vector(d_net.nodes_in_layer[current_layer + 1]);
+		next_node_values = cuda_build_vector(d_net.nodes_in_layer[current_layer + 2]);
 		cudaDeviceSynchronize();
 	}
 	copy_device_to_host(current_node_values, h_output);
@@ -187,14 +185,14 @@ int copy_device_to_host(network *device, network *host){
 
 void free_network(network h_net){
 	free(h_net.nodes_in_layer);
-	for(int layer = 0; layer < h_net.number_of_layers; layer++){
+	for(int layer = 0; layer < h_net.number_of_layers - 1; layer++){
 		free_vector(h_net.biases[layer]);
 		free_matrix(h_net.weights[layer]);
 	}
 }
 void cuda_free_network(network d_net){
 	free(d_net.nodes_in_layer);
-	for(int layer = 0; layer < d_net.number_of_layers; layer++){
+	for(int layer = 0; layer < d_net.number_of_layers - 1; layer++){
 		cuda_free_vector(d_net.biases[layer]);
 		cuda_free_matrix(d_net.weights[layer]);
 	}

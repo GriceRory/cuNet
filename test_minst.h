@@ -40,24 +40,27 @@ int test_minst(){
 		set_element(*possible[i], i, 1);
 	}
 
-	printf("starting training\n\n\n");
+	printf("\n\nstarting training\n\n\n");
 	float probability_correct = 0.0;//correct(d_net, *training, possible, 10);
-	for(int epoc = 0; epoc < 2; ++epoc){
+	for(int epoc = 0; epoc < 100; ++epoc){
 		printf("%i th epoc beginning\n", epoc);
 		train(&d_net, d_training_sample, -0.005);
+		printf("epoc training complete\n");
 		d_training_sample = sample_database(d_training, sample_size+=10);
+		printf("sampling database complete\n");
 
-		printf("epoc training complete\n\n");
 		if(!epoc%10){
+			printf("calculating training statistics\n");
 			probability_correct = correct(d_net, *training, possible, 10);
+			printf("probability calculated\n");
+			float error = 0.0;
+			for(int i = 0; i < training->size; ++i){
+				error += error_term(d_net, *training->inputs[i], *training->outputs[i]);
+			}
+			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error);
+			if(probability_correct >  0.99){break;}
 		}
-
-		float error = 0.0;
-		for(int i = 0; i < training->size; ++i){
-			error += error_term(d_net, *training->inputs[i], *training->outputs[i]);
-		}
-		printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error);
-		if(probability_correct >  0.99){break;}
+		printf("\n\n");
 	}
 
 	float testing_success_probability = correct(d_net, *testing, possible, 10);
