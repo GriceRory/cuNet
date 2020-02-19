@@ -134,7 +134,7 @@ int equals(vector u, vector v){
 float dist(vector u, vector v){
 	float distance = 0;
 	for(int i = 0; i < u.length; i++){
-		distance += get_element(u, i) * get_element(v, i);
+		distance += (get_element(u, i) - get_element(v, i)) * (get_element(u, i) - get_element(v, i));
 	}
 	return distance;
 }

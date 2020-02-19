@@ -42,17 +42,17 @@ int test_minst(){
 
 	printf("\n\nstarting training\n\n\n");
 	float probability_correct = 0.0;//correct(d_net, *training, possible, 10);
-	for(int epoc = 0; epoc < 100; ++epoc){
+	for(int epoc = 0; epoc < 10000; ++epoc){
 		printf("%i th epoc beginning\n", epoc);
-		train(&d_net, d_training_sample, -0.005);
+		train(&d_net, d_training_sample, 0.005);
 		printf("epoc training complete\n");
 		d_training_sample = sample_database(d_training, sample_size+=10);
 		printf("sampling database complete\n");
 
-		if(!epoc%10){
+		if(!(epoc%10)){
 			printf("calculating training statistics\n");
 			probability_correct = correct(d_net, *training, possible, 10);
-			printf("probability calculated\n");
+			printf("probability calculated %f\n", probability_correct);
 			float error = 0.0;
 			for(int i = 0; i < training->size; ++i){
 				error += error_term(d_net, *training->inputs[i], *training->outputs[i]);

@@ -95,8 +95,8 @@ int run_network(network d_net, vector h_input, vector *h_output){
 		cudaDeviceSynchronize();
 	}
 	copy_device_to_host(current_node_values, h_output);
-	cuda_free_vector(current_node_values);
-	cuda_free_vector(next_node_values);
+	//cuda_free_vector(current_node_values);
+	//cuda_free_vector(next_node_values);
 	return cudaGetLastError();
 }
 
@@ -108,7 +108,20 @@ int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_
 	cudaDeviceSynchronize();
 	matrix_multiply<<<number_of_blocks, threads_per_block>>>(d_input, d_weights, d_output);
 	cudaError_t error = cudaDeviceSynchronize();
-	if(error){printf("systems failure on matrix multiply in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));return error;}
+	if(error){printf("systems failure on matrix multiply in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));
+		matrix *m = build_matrix(1, 1);
+		copy_device_to_host(&d_weights, m);
+		print_matrix(*m);
+
+		vector *v = build_vector(1);
+		copy_device_to_host(&d_biases, v);
+		print_vector(*v);
+		copy_device_to_host(&d_input, v);
+		print_vector(*v);
+
+		sleep(100000000);return error;
+	}
+
 	number_of_blocks = (d_output.length/BLOCK_SIZE) + 1;
 	vector_add<<<number_of_blocks, threads_per_block>>>(d_output, d_biases);
 	error = cudaDeviceSynchronize();
