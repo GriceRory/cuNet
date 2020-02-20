@@ -10,7 +10,14 @@ database* build_minst_testing_database();
 int test_minst(){
 	printf("testing MINST\n");
 	int failed = 0;
-	int sample_size = 300;
+	int layers = 5;
+	int sample_size = 1000;
+	int max_epocs = 10000;
+	float learning_factor = 0.0001;
+	float max_weight = 5.0;
+	float max_bias = 2.0;
+	int epocs_per_test = 20;
+
 	database *training = build_minst_training_database();
 	database *testing = build_minst_testing_database();
 
@@ -24,14 +31,14 @@ int test_minst(){
 	database *d_training_sample = sample_database(d_training, sample_size);
 
 	printf("databases built\n");
-	int layers = 10;
+
 	int nodes[layers];
 	for(int i = 0; i < layers; ++i){
 		nodes[i] = training->inputs[0]->length - ((float)(training->inputs[0]->length - training->outputs[0]->length)/(layers-1))*i;
 	}
 	network net = build_network(layers, nodes);
 	network d_net = cuda_build_network(layers, nodes);
-	randomize_network(net, 5.0, 2.0);
+	randomize_network(net, max_weight, max_bias);
 	copy_host_to_device(&net, &d_net);
 
 	vector **possible = (vector**)malloc(sizeof(vector*)*10);
@@ -42,23 +49,51 @@ int test_minst(){
 
 	printf("\n\nstarting training\n\n\n");
 	float probability_correct = 0.0;//correct(d_net, *training, possible, 10);
-	for(int epoc = 0; epoc < 10000; ++epoc){
+	for(int epoc = 0; epoc < max_epocs; ++epoc){
 		printf("%i th epoc beginning\n", epoc);
-		train(&d_net, d_training_sample, 0.005);
+		train(&d_net, d_training_sample, learning_factor);
 		printf("epoc training complete\n");
-		d_training_sample = sample_database(d_training, sample_size+=10);
-		printf("sampling database complete\n");
+		d_training_sample = sample_database(d_training, sample_size += 10);
+		learning_factor = 0.0001;
+		if(probability_correct > 0.7){
+			sample_size += 40;
+			learning_factor = 0.00001;
+			if(probability_correct > 0.8){
+				sample_size += 190;
+				learning_factor = 0.000001;
+				if(probability_correct > 0.9){
+					sample_size += 1900;
+					learning_factor = 0.00000001;
+					if(probability_correct > 0.95){
+						sample_size += 4900;
+						learning_factor = 0.0000000001;
+					}
+				}
+			}
+		}
 
-		if(!(epoc%10)){
+		if(!(epoc%epocs_per_test) && epoc != 0){
 			printf("calculating training statistics\n");
 			probability_correct = correct(d_net, *training, possible, 10);
 			printf("probability calculated %f\n", probability_correct);
 			float error = 0.0;
 			for(int i = 0; i < training->size; ++i){
+				if(!(i%(training->size/10))){printf("%f of the way through measuring error\n", ((float)i/training->size));}
 				error += error_term(d_net, *training->inputs[i], *training->outputs[i]);
 			}
-			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error);
-			if(probability_correct >  0.99){break;}
+			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error/training->size);
+			if(probability_correct > 0.99){printf("trained to >99%% on training data");break;}
+		}else{
+			database *h_training_sample = build_database(d_training_sample->size);
+			copy_device_to_host(d_training_sample, h_training_sample);
+			printf("calculating approximate training statistics with sample size %i\n", h_training_sample->size);
+			probability_correct = correct(d_net, *h_training_sample, possible, 10);
+			printf("approximate probability calculated %f\n", probability_correct);
+			float error = 0.0;
+			for(int i = 0; i < h_training_sample->size; ++i){
+				error += error_term(d_net, *h_training_sample->inputs[i], *h_training_sample->outputs[i]);
+			}
+			printf("%i th epoc completed with approximate success probability of %f, and error of %f\n", epoc, probability_correct, (float)error/h_training_sample->size);
 		}
 		printf("\n\n");
 	}

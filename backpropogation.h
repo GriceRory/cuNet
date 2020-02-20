@@ -22,6 +22,7 @@ void train(network *d_net, database *d_sample, float learning_factor){
 	}
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, nodes);
 	for(int i = 0; i < d_sample->size; i++){
+		if(!(i%(d_sample->size/10))){printf("%f of the way through training\n", ((float)i/d_sample->size));}
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
@@ -132,19 +133,21 @@ int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_
 		calculate_next_layer_weight_changes<<<dimGrid, dimBlock>>>(*d_change->weights[layer], *node_outputs[layer+1], *node_outputs[layer], *node_derivatives[layer+1]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
-	/*for(int i = 0; i < d_net->number_of_layers; ++i){
+	for(int i = 0; i < d_net->number_of_layers; ++i){
 		cuda_free_vector(node_outputs[i]);
 		cuda_free_vector(node_derivatives[i]);
 	}
 	free(node_outputs);
-	free(node_derivatives);*/
+	free(node_derivatives);
 	cudaDeviceSynchronize();
 	return cuda_status;
 }
 
 vector** calculate_nodes(network *d_net, vector *d_input){
 	vector** node_outputs = (vector**)malloc(sizeof(vector*)*d_net->number_of_layers);
-	node_outputs[0] = d_input;
+	node_outputs[0] = cuda_build_vector(d_input->length);
+	cudaMemcpy(node_outputs[0]->elements, d_input->elements, sizeof(float)*d_input->length, cudaMemcpyDeviceToDevice);
+
 	for(int layer = 0; layer < d_net->number_of_layers - 1; layer++){
 		node_outputs[layer + 1] = cuda_build_vector(d_net->nodes_in_layer[layer+1]);
 		calculate_layer(*(d_net->weights[layer]), *(d_net->biases[layer]), *node_outputs[layer], *node_outputs[layer + 1]);
@@ -156,14 +159,14 @@ float correct(network d_net, database h_db, vector** possible_outputs, int numbe
 	float probability = 0;
 	vector *h_output = build_vector(1);
 	for(int element = 0; element < h_db.size; ++element){
+		//if(!(element%(h_db.size/10))){printf("%f of the way through measuring probability\n", ((float)element/h_db.size));}
 		run_network(d_net, *h_db.inputs[element], h_output);
 		vector *classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
 		if(equals(*classification, *h_db.outputs[element])){
 			++probability;
 		}
-		//free_vector(classification);
 	}
-	//free_vector(h_output);
+	free_vector(h_output);
 
 	return probability/h_db.size;
 }

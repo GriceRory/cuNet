@@ -239,7 +239,7 @@ int test_train(){
 		for(int element = 0; element < dataset_size; element++){
 			errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
 		}
-		train(&d_net, d_sample, 0.001);
+		train(&d_net, d_sample, 0.00001);
 		cudaDeviceSynchronize();
 		for(int element = 0; element < dataset_size; element++){
 			errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
@@ -268,7 +268,6 @@ int test_backpropogate(){
 	float error_after = error_term(d_net, *h_input, *h_expected);
 	if((error_after-error_previously) / error_previously > 0.4){
 		failed = 1;
-		//print_network(h_change);
 		printf("error was increased by at least 40%% from %f, to %f\n", error_previously, error_after);
 	}
 	if(failed){printf("failed in backpropogate()\n");}
@@ -276,12 +275,10 @@ int test_backpropogate(){
 }
 
 float error_term(network d_net, vector h_input, vector h_expected){
-	float error = 0.0;
 	vector *h_output = build_vector(d_net.nodes_in_layer[d_net.number_of_layers - 1]);
 	run_network(d_net, h_input, h_output);
-	for(int element = 0; element < h_expected.length; element++){
-		error += (get_element(*h_output, element) - get_element(h_expected, element))*(get_element(*h_output, element) - get_element(h_expected, element));
-	}
+	float error = dist(h_expected, *h_output);
+	free_vector(h_output);
 	return error;
 }
 void initialize_globals(){

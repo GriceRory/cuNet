@@ -37,7 +37,8 @@ __global__ void vector_subtract(vector d_output, vector d_value, vector d_subtra
 __global__ void scalar_multiply(vector d_vector, float scalar);
 __global__ void scalar_multiply(matrix d_matrix, float scalar);
 int equals(vector u, vector v);
-float dist(vector u, vector v);
+float dist(vector h_u, vector h_v);
+__global__ void dist(vector d_u, vector d_v, float *output);
 
 //matrix memory
 matrix* cuda_build_matrix(int height, int width);
@@ -131,12 +132,47 @@ int equals(vector u, vector v){
 }
 
 //this could be made into a device function for a little bit of extra speed.
-float dist(vector u, vector v){
+float dist(vector h_u, vector h_v){
+	/*vector *d_v = cuda_build_vector(h_v.length);
+	vector *d_u = cuda_build_vector(h_u.length);
+	copy_host_to_device(&h_u, d_u);
+	copy_host_to_device(d_v, &h_v);
+
+	float *d_distance;
+	cudaMalloc(&d_distance, sizeof(float));
+
+	dist<<<1, BLOCK_SIZE>>>(*d_u, *d_v, d_distance);
+
 	float distance = 0;
-	for(int i = 0; i < u.length; i++){
-		distance += (get_element(u, i) - get_element(v, i)) * (get_element(u, i) - get_element(v, i));
+	cudaMemcpy(&distance, d_distance, sizeof(float), cudaMemcpyDeviceToHost);
+	cuda_free_vector(d_v);
+	cuda_free_vector(d_u);
+	cudaFree(d_distance);
+	*/
+	float distance = 0;
+	for(int element = 0; element < h_u.length; element++){
+		distance += (get_element(h_u, element)-get_element(h_v, element))*(get_element(h_u, element)-get_element(h_v, element));
 	}
+
 	return distance;
+}
+
+__global__ void dist(vector d_u, vector d_v, float *output){
+	__shared__ float reduced_sum[BLOCK_SIZE];
+	if(threadIdx.x >= BLOCK_SIZE){return;}
+	reduced_sum[threadIdx.x] = 0;
+
+	for(int element = threadIdx.x; element < d_u.length; element += BLOCK_SIZE){
+		float val = (get_element(d_u, element) - get_element(d_v, element))*(get_element(d_u, element) - get_element(d_v, element));
+		if(val != 0.0/0.0){
+			reduced_sum[threadIdx.x] += val;
+		}
+	}
+
+	reduce(reduced_sum);
+	if(threadIdx.x == 0){
+		*output = reduced_sum[0];
+	}
 }
 
 __global__ void matrix_multiply(vector d_input, matrix d_M, vector d_out){

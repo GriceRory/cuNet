@@ -95,8 +95,8 @@ int run_network(network d_net, vector h_input, vector *h_output){
 		cudaDeviceSynchronize();
 	}
 	copy_device_to_host(current_node_values, h_output);
-	//cuda_free_vector(current_node_values);
-	//cuda_free_vector(next_node_values);
+	cuda_free_vector(current_node_values);
+	cuda_free_vector(next_node_values);
 	return cudaGetLastError();
 }
 

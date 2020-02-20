@@ -35,7 +35,8 @@ database* build_database(int size){
 }
 
 database* sample_database(database *db, int size){
-	if(size > (db->size)*0.6){return db;}
+	if(size > (db->size)/2){return db;}
+
 	database* sample = build_database(size);
 	int *indices = (int*)malloc(sizeof(int)*size);
 	for(int element = 0; element < size; ++element){
@@ -100,7 +101,6 @@ void copy_host_to_device(database *host, database *device){
 }
 void copy_device_to_host(database *device, database *host){
 	host->size = device->size;
-	//copying these pointers is utterly meaningless
 	for(int pair = 0; pair < host->size; pair++){
 		host->inputs[pair] = build_vector(device->inputs[pair]->length);
 		host->outputs[pair] = build_vector(device->outputs[pair]->length);
