@@ -16,7 +16,7 @@ int test_minst(){
 	float learning_factor = 0.0001;
 	float max_weight = 5.0;
 	float max_bias = 2.0;
-	int epocs_per_test = 20;
+	int epocs_per_test = 100;
 
 	database *training = build_minst_training_database();
 	database *testing = build_minst_testing_database();
@@ -53,20 +53,27 @@ int test_minst(){
 		printf("%i th epoc beginning\n", epoc);
 		train(&d_net, d_training_sample, learning_factor);
 		printf("epoc training complete\n");
-		d_training_sample = sample_database(d_training, sample_size += 10);
-		learning_factor = 0.0001;
-		if(probability_correct > 0.7){
-			sample_size += 40;
-			learning_factor = 0.00001;
-			if(probability_correct > 0.8){
-				sample_size += 190;
-				learning_factor = 0.000001;
-				if(probability_correct > 0.9){
-					sample_size += 1900;
-					learning_factor = 0.00000001;
-					if(probability_correct > 0.95){
-						sample_size += 4900;
-						learning_factor = 0.0000000001;
+		d_training_sample = sample_database(d_training, sample_size);
+
+		if(probability_correct > 0.6){
+			sample_size = 2000;
+			learning_factor = 0.00005;
+			if(probability_correct > 0.7){
+				sample_size = 5000;
+				learning_factor = 0.00002;
+				if(probability_correct > 0.8){
+					sample_size = 20000;
+					learning_factor = 0.00001;
+					if(probability_correct > 0.9){
+						sample_size = 30000;
+						learning_factor = 0.000005;
+						if(probability_correct > 0.95){
+							sample_size = training->size;
+							learning_factor = 0.0000001;
+							if(probability_correct > 0.99){
+								learning_factor = 0.00000005;
+							}
+						}
 					}
 				}
 			}
@@ -83,7 +90,7 @@ int test_minst(){
 			}
 			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error/training->size);
 			if(probability_correct > 0.99){printf("trained to >99%% on training data");break;}
-		}else{
+		}else if(probability_correct < 0.8 || !(epoc%5)){
 			database *h_training_sample = build_database(d_training_sample->size);
 			copy_device_to_host(d_training_sample, h_training_sample);
 			printf("calculating approximate training statistics with sample size %i\n", h_training_sample->size);
