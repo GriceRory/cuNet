@@ -1,7 +1,3 @@
-#include "linear_algebra.h"
-#include <time.h>
-#include <unistd.h>
-
 int test_memory_functions();
 int test_matrix_memory_functions(int height, int width, float max);
 int test_vector_memory_functions(int length, float max);

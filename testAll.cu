@@ -4,10 +4,13 @@ int difference_tollerance(float actual, float expected, float tollerance){
 
 #include <time.h>
 #include <unistd.h>
+#include "backpropogation.h"
+
+
 #include "testing_linear_algebra.h"
 #include "testing_network.h"
-#include "testing_backpropogation.h"
 #include "test_database.h"
+#include "testing_backpropogation.h"
 #include "test_minst.h"
 
 int main(void){

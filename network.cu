@@ -107,8 +107,12 @@ __device__ __host__ void set_bias(network h_net, int layer, int node, float valu
 }
 
 //signal functions and derivative calculators
-__device__ __host__ float sigmoid(float input){return 1/(1+exp(-input));}
-__device__ __host__ float sigmoid_derivative(float output){return output*(1-output);}
+__device__ __host__ float sigmoid(float input){
+	return 1/(1+exp(-input));
+}
+__device__ __host__ float sigmoid_derivative(float output){
+	return output*(1-output);
+}
 __global__ void apply_signal_function(vector v){
 	int idx = threadIdx.x + blockIdx.x*blockDim.x;
 	if(idx < v.length){

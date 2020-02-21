@@ -1,6 +1,6 @@
-#include "database.h"
+#include "network.h"
 
-void train(network *n, database db, float learning_factor);//returns current cudaStatus
+void train(network *n, database *db, float learning_factor);//returns current cudaStatus
 int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_expected);//returns current cudaStatus
 vector** calculate_nodes(network *d_net, vector *d_input);
 

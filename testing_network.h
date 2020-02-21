@@ -1,6 +1,3 @@
-
-#include "network.h"
-
 int test_network();
 int test_build_network(int layers);
 int test_cuda_build_network(int layers);

@@ -1,3 +1,5 @@
+#include <math.h>
+#include "database.h"
 
 typedef struct{
 	int number_of_layers;
@@ -8,11 +10,7 @@ typedef struct{
 	//float (*signal_derivative)(float);
 }network;
 
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
+
 
 
 
@@ -38,4 +36,3 @@ __device__ __host__ float sigmoid(float input);
 __device__ __host__ float sigmoid_derivative(float output);
 __global__ void apply_signal_function(vector v);
 
-#include "backpropogation.h"
