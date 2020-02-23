@@ -28,17 +28,18 @@ __host__ __device__ void set_element(matrix m, int row, int col, float element);
 __host__ __device__ float get_element(vector v, int element);
 __host__ __device__ void set_element(vector v, int element, float value);
 
-//algebra
-__global__ void matrix_multiply(vector d_input, matrix m, vector d_out);
-__device__ void reduce(float *reduced_sum);
-__global__ void matrix_add(matrix d_target, matrix d_addition);
+//vector algebra
 __global__ void vector_add(vector d_target, vector d_addition);
 __global__ void vector_subtract(vector d_output, vector d_value, vector d_subtraction);
 __global__ void scalar_multiply(vector d_vector, float scalar);
-__global__ void scalar_multiply(matrix d_matrix, float scalar);
 int equals(vector u, vector v);
 float dist(vector h_u, vector h_v);
 __global__ void dist(vector d_u, vector d_v, float *output);
+//matrix algebra
+__global__ void matrix_multiply(vector d_input, matrix m, vector d_out);
+__device__ void reduce(float *reduced_sum);
+__global__ void matrix_add(matrix d_target, matrix d_addition);
+__global__ void scalar_multiply(matrix d_matrix, float scalar);
 
 //matrix memory
 matrix* cuda_build_matrix(int height, int width);

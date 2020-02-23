@@ -15,4 +15,5 @@ testAll.cu runs test of all functions.
 
 I run this code in ubuntu 16.04 LTS using eclipse Nsight.
 To do this I import the project from git using the project explorer.
-
+The compilarion of this project requires specific complilation settings detailed here.
+https://bit.ly/2wA43gl

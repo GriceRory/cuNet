@@ -12,7 +12,7 @@ int test_minst(){
 	int failed = 0;
 	int layers = 5;
 	int sample_size = 1000;
-	int max_epocs = 10000;
+	int max_epocs = 400;
 	float learning_factor = 0.0001;
 	float max_weight = 5.0;
 	float max_bias = 2.0;

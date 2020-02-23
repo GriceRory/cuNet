@@ -1,4 +1,6 @@
 #include "backpropogation.h"
+#include <cuda.h>
+#include <cuda_runtime.h>
 
 void train(network *d_net, database *d_sample, float learning_factor){
 	int nodes[d_net->number_of_layers];
@@ -7,7 +9,6 @@ void train(network *d_net, database *d_sample, float learning_factor){
 	}
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, nodes);
 	for(int i = 0; i < d_sample->size; i++){
-		if(!(i%(d_sample->size/10))){printf("%f of the way through training\n", ((float)i/d_sample->size));}
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
 		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
