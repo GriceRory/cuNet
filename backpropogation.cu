@@ -99,7 +99,7 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 	for(int layer = d_net.number_of_layers - 2; layer >= 0; --layer){
 		blocks = d_net.nodes_in_layer[layer];
 		calculate_this_layer_node_derivatves<<<blocks, threadsPerBlock>>>(*d_net.weights[layer], *d_node_outputs[layer+1], *d_node_derivatives[layer + 1], *d_node_derivatives[layer]);
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize(stream);
 	}
 	return d_node_derivatives;
 }
@@ -125,7 +125,6 @@ int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_
 	}
 	free(node_outputs);
 	free(node_derivatives);
-	cudaDeviceSynchronize();
 	return cuda_status;
 }
 

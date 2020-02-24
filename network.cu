@@ -52,7 +52,6 @@ int run_network(network d_net, vector h_input, vector *h_output, cudaStream_t st
 		current_node_values = (vector*)malloc(sizeof(vector*));
 		current_node_values = next_node_values;
 		next_node_values = cuda_build_vector(d_net.nodes_in_layer[current_layer + 2]);
-		cudaStreamSynchronize(stream);
 	}
 	copy_device_to_host(current_node_values, h_output);
 	cuda_free_vector(current_node_values);
@@ -66,20 +65,11 @@ int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_
 	int threads_per_block = BLOCK_SIZE;
 	int number_of_blocks = d_output.length;
 	matrix_multiply<<<number_of_blocks, threads_per_block, 0, stream>>>(d_input, d_weights, d_output);
-	cudaError_t error = cudaStreamSynchronize(stream);
-	if(error){
-		printf("systems failure on matrix multiply in calculateLayer calculation error: %s\n",
-				cudaGetErrorName((cudaError_t) error));
-		return error;
-	}
-
 	number_of_blocks = (d_output.length/BLOCK_SIZE) + 1;
 	vector_add<<<number_of_blocks, threads_per_block>>>(d_output, d_biases);
-	error = cudaDeviceSynchronize();
-	if(error){printf("systems failure on vector add in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));return error;}
 	apply_signal_function<<<number_of_blocks, threads_per_block>>>(d_output);
-	error = cudaDeviceSynchronize();
-	if(error){printf("error type = %s\n\n", cudaGetErrorString(error));
+	int error = cudaStreamSynchronize(stream);
+	if(error){printf("error type = %s\n\n", cudaGetErrorString((cudaError_t) error));
 	printf("systems failure on signal function in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));return error;}
 	return error;
 }
@@ -180,4 +170,30 @@ void print_network(network h_network){
 		printf("\nbiases\n\n");
 		print_vector(*h_network.biases[layer]);
 	}
+}
+
+void write_network(network h_net, char *file_name){
+	FILE *outputs = fopen(file_name, "w");
+	fwrite(&h_net.number_of_layers, sizeof(int), 1, outputs);
+	fwrite(h_net.nodes_in_layer, sizeof(int), h_net.number_of_layers, outputs);
+	for(int i = 0; i < h_net.number_of_layers-1; ++i){
+		fwrite(h_net.weights[i]->elements, sizeof(float), h_net.weights[i]->height * h_net.weights[i]->width, outputs);
+		fwrite(h_net.biases[i]->elements, sizeof(float), h_net.biases[i]->length, outputs);
+	}
+	fclose(outputs);
+}
+
+network read_network(char *file_name){
+	int number_of_layers = 0;
+	FILE *inputs = fopen(file_name, "r");
+	fread(&number_of_layers, sizeof(int), 1, inputs);
+	int *nodes = (int*)malloc(sizeof(int)*number_of_layers);
+	fread(nodes, sizeof(int), number_of_layers, inputs);
+	network h_net = build_network(number_of_layers, nodes);
+	for(int i = 0; i < h_net.number_of_layers-1; ++i){
+		fread(h_net.weights[i]->elements, sizeof(float), h_net.weights[i]->height * h_net.weights[i]->width, inputs);
+		fread(h_net.biases[i]->elements, sizeof(float), h_net.biases[i]->length, inputs);
+	}
+	fclose(inputs);
+	return h_net;
 }

@@ -15,4 +15,5 @@ float learning_factor, max_weight, max_bias;
 database *training, *testing;
 
 database *d_training, *d_testing, *d_training_sample;
+char *network_file_name = "/home/rory/Documents/MNIST/training.bin";//(int)(10000*probability_correct);
 

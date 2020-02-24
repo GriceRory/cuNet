@@ -36,3 +36,5 @@ __device__ __host__ float sigmoid(float input);
 __device__ __host__ float sigmoid_derivative(float output);
 __global__ void apply_signal_function(vector v);
 
+void write_network(network h_net, char *file_name);
+network read_network(char *file_name);
