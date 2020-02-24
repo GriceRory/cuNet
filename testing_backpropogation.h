@@ -10,14 +10,14 @@ int test_calculate_last_layer_node_derivatives();
 
 void initialize_globals();
 void free_globals();
-float error_term(network d_net, vector h_input, vector h_expected);
+float error_term(network d_net, vector h_input, vector h_expected, cudaStream_t stream);
 vector** host_calculate_node_derivatives(network host_net, vector **host_node_outputs, vector *host_expected);
 vector** host_calculate_node_outputs(network host_net, vector *host_input);
 vector* host_calculate_this_layer_node_derivatives(matrix connecting_weights, vector node_outputs_next_layer, vector node_derivatives_next_layer);
 matrix *host_calculate_next_layer_weight_changes(vector* h_node_outputs_next_layer, vector* h_node_outputs_previous_layer, vector* h_node_derivatives_next_layer);
 vector* host_calculate_next_layer_bias_changes(vector h_node_outputs, vector h_node_derivatives);
 
-int layers = 20;
+
 float max_weights = 2.0;
 float max_biases = 1.0;
 
@@ -118,7 +118,7 @@ int test_calculate_last_layer_node_derivatives(){
 	printf("testing calculate_last_layer_node_derivatives()\n");
 	vector *difference = cuda_build_vector(10);
 
-	calculate_last_layer_node_derivatives(difference, d_input, d_expected);
+	calculate_last_layer_node_derivatives(difference, d_input, d_expected, streams[0]);
 	int failed = cudaDeviceSynchronize();
 	if(failed){printf("\nfailed kernel execution with cuda status %s\n", cudaGetErrorName((cudaError_t)failed));}
 	vector *host_difference = build_vector(h_input->length);
@@ -237,12 +237,12 @@ int test_train(){
 		float errors_before = 0;
 		float errors_after = 0;
 		for(int element = 0; element < dataset_size; element++){
-			errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
+			errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element%number_of_streams]);
 		}
-		train(&d_net, d_sample, 0.00001);
+		train(&d_net, d_sample, 0.00001, streams, number_of_streams);
 		cudaDeviceSynchronize();
 		for(int element = 0; element < dataset_size; element++){
-			errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element]);
+			errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element%number_of_streams]);
 		}
 		if(errors_before < errors_after){
 			failed = 1;
@@ -258,14 +258,14 @@ int test_train(){
 int test_backpropogate(){
 	int failed = 0;
 	printf("testing backpropogate()\n");
-	float error_previously = error_term(d_net, *h_input, *h_expected);
-	failed |= backpropogate(&d_net, &d_change, d_input, d_expected);
+	float error_previously = error_term(d_net, *h_input, *h_expected, streams[0]);
+	failed |= backpropogate(&d_net, &d_change, d_input, d_expected, streams[0]);
 	copy_device_to_host(&d_net, &h_net);
 	copy_device_to_host(&d_change, &h_change);
 
-	apply_deltas(d_net, d_change);
+	apply_deltas(d_net, d_change, streams, number_of_streams);
 	cudaDeviceSynchronize();
-	float error_after = error_term(d_net, *h_input, *h_expected);
+	float error_after = error_term(d_net, *h_input, *h_expected, streams[0]);
 	if((error_after-error_previously) / error_previously > 0.4){
 		failed = 1;
 		printf("error was increased by at least 40%% from %f, to %f\n", error_previously, error_after);
@@ -274,9 +274,9 @@ int test_backpropogate(){
 	return failed;
 }
 
-float error_term(network d_net, vector h_input, vector h_expected){
+float error_term(network d_net, vector h_input, vector h_expected, cudaStream_t stream){
 	vector *h_output = build_vector(d_net.nodes_in_layer[d_net.number_of_layers - 1]);
-	run_network(d_net, h_input, h_output);
+	run_network(d_net, h_input, h_output, stream);
 	float error = dist(h_expected, *h_output);
 	free_vector(h_output);
 	return error;
@@ -301,13 +301,13 @@ void initialize_globals(){
 	copy_host_to_device(h_input, d_input);
 	copy_host_to_device(h_expected, d_expected);
 
-	d_node_outputs = calculate_nodes(&d_net, d_input);
+	d_node_outputs = calculate_nodes(&d_net, d_input, streams[0]);
 	h_node_outputs = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_outputs[layer] = build_vector(10);
 		copy_device_to_host(d_node_outputs[layer], h_node_outputs[layer]);
 	}
-	d_node_derivatives = calculate_node_derivatives(d_net, d_node_outputs, d_expected);
+	d_node_derivatives = calculate_node_derivatives(d_net, d_node_outputs, d_expected, streams[0]);
 	h_node_derivatives = (vector **)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_derivatives[layer] = build_vector(nodes[layer]);

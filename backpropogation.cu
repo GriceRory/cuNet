@@ -2,7 +2,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-void train(network *d_net, database *d_sample, float learning_factor){
+void train(network *d_net, database *d_sample, float learning_factor, cudaStream_t *streams, int number_of_streams){
 	int nodes[d_net->number_of_layers];
 	for(int i = 0; i < d_net->number_of_layers; ++i){
 		nodes[i] = d_net->nodes_in_layer[i];
@@ -10,25 +10,25 @@ void train(network *d_net, database *d_sample, float learning_factor){
 	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, nodes);
 	for(int i = 0; i < d_sample->size; i++){
 		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
-		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i]);
-		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample);
+		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i], streams[i%number_of_streams]);
+		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample, streams,  number_of_streams);
 		cuda_free_network(weight_and_bias_changes_sample);
 	}
 	scalar_multiply(weight_and_bias_changes, learning_factor);
-	apply_deltas(*d_net, weight_and_bias_changes);
+	apply_deltas(*d_net, weight_and_bias_changes, streams, number_of_streams);
 	cuda_free_network(weight_and_bias_changes);
 }
 
-void apply_deltas(network d_net, network d_change){
+void apply_deltas(network d_net, network d_change, cudaStream_t *streams, int number_of_streams){
 	int threadsPerBlock;
 	int blocks;
 	for(int layer = 0; layer < d_net.number_of_layers - 1; layer++){
 		threadsPerBlock = (d_net.weights[layer])->height;
 		blocks = (d_net.weights[layer])->width;
-		matrix_add<<<blocks, threadsPerBlock>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
+		matrix_add<<<blocks, threadsPerBlock, 0, streams[layer%number_of_streams]>>>(*(d_net.weights[layer]), *(d_change.weights[layer]));
 		threadsPerBlock = BLOCK_SIZE;
 		blocks = (d_net.biases[layer])->length/threadsPerBlock + 1;
-		vector_add<<<blocks, threadsPerBlock>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
+		vector_add<<<blocks, threadsPerBlock, 0, streams[layer%number_of_streams]>>>(*(d_net.biases[layer]), *(d_change.biases[layer]));
 	}
 }
 
@@ -75,7 +75,7 @@ __global__ void calculate_this_layer_node_derivatves(matrix device_connecting_we
 	set_element(device_node_derivatives_this_layer, nodeFrom, node_derivative_components[0]);
 }
 
-void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives, vector *d_expected_output, vector *d_node_outputs_last_layer){
+void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives, vector *d_expected_output, vector *d_node_outputs_last_layer, cudaStream_t stream){
 	int threadsPerBlock = BLOCK_SIZE;
 	int blocks = (d_last_layer_node_derivatives->length / BLOCK_SIZE)+1;
 
@@ -83,7 +83,7 @@ void calculate_last_layer_node_derivatives(vector *d_last_layer_node_derivatives
 	scalar_multiply<<<blocks, threadsPerBlock>>>(*d_last_layer_node_derivatives, 2);
 }
 
-vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output){
+vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vector *d_expected_output, cudaStream_t stream){
 	vector **d_node_derivatives = (vector**)malloc(sizeof(vector*)*d_net.number_of_layers);
 	//calculation for the node derivatives in the last layer is simple.
 	for(int layer = 0; layer < d_net.number_of_layers; ++layer){
@@ -92,7 +92,7 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 	int threadsPerBlock = BLOCK_SIZE;
 	int blocks;
 
-	calculate_last_layer_node_derivatives(d_node_derivatives[d_net.number_of_layers-1], d_expected_output, d_node_outputs[d_net.number_of_layers-1]);
+	calculate_last_layer_node_derivatives(d_node_derivatives[d_net.number_of_layers-1], d_expected_output, d_node_outputs[d_net.number_of_layers-1], stream);
 
 
 	//calculates each layer then checks for cuda errors.
@@ -104,19 +104,19 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 	return d_node_derivatives;
 }
 
-int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_expected){
+int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_expected, cudaStream_t stream){
 	int cuda_status = cudaSuccess;
-	vector **node_outputs = calculate_nodes(d_net, d_input);
-	vector **node_derivatives = calculate_node_derivatives(*d_net, node_outputs, d_expected);
+	vector **node_outputs = calculate_nodes(d_net, d_input, stream);
+	vector **node_derivatives = calculate_node_derivatives(*d_net, node_outputs, d_expected, stream);
 	cuda_status = cudaGetLastError();
 	if(cuda_status != cudaSuccess){return cuda_status;}
 	for(int layer = 0; layer < d_net->number_of_layers - 1; ++layer){
 		int threadsPerBlock = BLOCK_SIZE;
 		int blocks = BLOCK_SIZE / node_outputs[layer+1]->length + 1;
-		calculate_next_layer_bias_changes<<<blocks, threadsPerBlock>>>(*d_change->biases[layer], *node_outputs[layer+1], *node_derivatives[layer+1]);
+		calculate_next_layer_bias_changes<<<blocks, threadsPerBlock, 0, stream>>>(*d_change->biases[layer], *node_outputs[layer+1], *node_derivatives[layer+1]);
 		dim3 dimGrid(BLOCK_SIZE, BLOCK_SIZE);
 		dim3 dimBlock((d_change->weights[layer]->height/BLOCK_SIZE)+1, (d_change->weights[layer]->width/BLOCK_SIZE)+1);
-		calculate_next_layer_weight_changes<<<dimGrid, dimBlock>>>(*d_change->weights[layer], *node_outputs[layer+1], *node_outputs[layer], *node_derivatives[layer+1]);
+		calculate_next_layer_weight_changes<<<dimGrid, dimBlock, 0, stream>>>(*d_change->weights[layer], *node_outputs[layer+1], *node_outputs[layer], *node_derivatives[layer+1]);
 		if(cuda_status != cudaSuccess){return cuda_status;}
 	}
 	for(int i = 0; i < d_net->number_of_layers; ++i){
@@ -129,24 +129,24 @@ int backpropogate(network *d_net, network *d_change, vector *d_input, vector *d_
 	return cuda_status;
 }
 
-vector** calculate_nodes(network *d_net, vector *d_input){
+vector** calculate_nodes(network *d_net, vector *d_input, cudaStream_t stream){
 	vector** node_outputs = (vector**)malloc(sizeof(vector*)*d_net->number_of_layers);
 	node_outputs[0] = cuda_build_vector(d_input->length);
 	cudaMemcpy(node_outputs[0]->elements, d_input->elements, sizeof(float)*d_input->length, cudaMemcpyDeviceToDevice);
 
 	for(int layer = 0; layer < d_net->number_of_layers - 1; layer++){
 		node_outputs[layer + 1] = cuda_build_vector(d_net->nodes_in_layer[layer+1]);
-		calculate_layer(*(d_net->weights[layer]), *(d_net->biases[layer]), *node_outputs[layer], *node_outputs[layer + 1]);
+		calculate_layer(*(d_net->weights[layer]), *(d_net->biases[layer]), *node_outputs[layer], *node_outputs[layer + 1], stream);
 	}
 	return node_outputs;
 }
 
-float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs){
+float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs, cudaStream_t *streams, int number_of_streams){
 	float probability = 0;
 	vector *h_output = build_vector(1);
 	for(int element = 0; element < h_db.size; ++element){
 		//if(!(element%(h_db.size/10))){printf("%f of the way through measuring probability\n", ((float)element/h_db.size));}
-		run_network(d_net, *h_db.inputs[element], h_output);
+		run_network(d_net, *h_db.inputs[element], h_output, streams[element%number_of_streams]);
 		vector *classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
 		if(equals(*classification, *h_db.outputs[element])){
 			++probability;

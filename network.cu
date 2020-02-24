@@ -42,17 +42,17 @@ void scalar_multiply(network d_net, float learning_factor){
 
 //given a network, input on device memory and a pointer to an output on host memory,
 //calculates the output of the network on the given input.
-int run_network(network d_net, vector h_input, vector *h_output){
+int run_network(network d_net, vector h_input, vector *h_output, cudaStream_t stream){
 	vector *current_node_values = cuda_build_vector(d_net.nodes_in_layer[0]);
 	vector *next_node_values = cuda_build_vector(d_net.nodes_in_layer[1]);
 	copy_host_to_device(&h_input, current_node_values);
 	for(int current_layer = 0; current_layer < d_net.number_of_layers - 1; current_layer++){
-		calculate_layer(*d_net.weights[current_layer], *d_net.biases[current_layer], *current_node_values, *next_node_values);
+		calculate_layer(*d_net.weights[current_layer], *d_net.biases[current_layer], *current_node_values, *next_node_values, stream);
 		cuda_free_vector(current_node_values);
 		current_node_values = (vector*)malloc(sizeof(vector*));
 		current_node_values = next_node_values;
 		next_node_values = cuda_build_vector(d_net.nodes_in_layer[current_layer + 2]);
-		cudaDeviceSynchronize();
+		cudaStreamSynchronize(stream);
 	}
 	copy_device_to_host(current_node_values, h_output);
 	cuda_free_vector(current_node_values);
@@ -62,12 +62,11 @@ int run_network(network d_net, vector h_input, vector *h_output){
 
 //given the weights and biases on one layer of a network, as well as a signal function,
 //calculates the next layer
-int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_output){
+int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_output, cudaStream_t stream){
 	int threads_per_block = BLOCK_SIZE;
 	int number_of_blocks = d_output.length;
-	cudaDeviceSynchronize();
-	matrix_multiply<<<number_of_blocks, threads_per_block>>>(d_input, d_weights, d_output);
-	cudaError_t error = cudaDeviceSynchronize();
+	matrix_multiply<<<number_of_blocks, threads_per_block, 0, stream>>>(d_input, d_weights, d_output);
+	cudaError_t error = cudaStreamSynchronize(stream);
 	if(error){
 		printf("systems failure on matrix multiply in calculateLayer calculation error: %s\n",
 				cudaGetErrorName((cudaError_t) error));

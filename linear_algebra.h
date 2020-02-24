@@ -14,7 +14,7 @@ typedef struct{
 	float *elements;
 }vector;
 
-#define BLOCK_SIZE 64
+#define BLOCK_SIZE 32
 #define return_cuda_status if(cudaPeekAtLastError() != cudaSuccess){return cudaGetLastError();}
 
 

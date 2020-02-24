@@ -158,7 +158,7 @@ int test_calculate_layer(){
 	copy_host_to_device(biases, d_biases);
 
 	cudaDeviceSynchronize();
-	calculate_layer(*d_weights, *d_biases, *d_input, *d_output);
+	calculate_layer(*d_weights, *d_biases, *d_input, *d_output, streams[0]);
 	cudaDeviceSynchronize();
 	copy_device_to_host(d_output, output_test);
 	cudaDeviceSynchronize();
@@ -192,7 +192,7 @@ int test_run_network(int layers){
 	vector *input = build_vector(net.nodes_in_layer[0]);
 	randomize_vector(input, biasMax);
 	vector *output = build_vector(net.nodes_in_layer[1]);
-	error = run_network(net_device, *input, output);
+	error = run_network(net_device, *input, output, streams[0]);
 	if(error != cudaSuccess){printf("error run network = %d\n\n", error);}
 
 	vector *output_test = host_run_network(net, *input);
