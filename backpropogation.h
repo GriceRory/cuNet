@@ -1,6 +1,7 @@
 #include "network.h"
 
-void train(network *n, database *db, float learning_factor, cudaStream_t *streams, int number_of_streams);//returns current cudaStatus
+void train(network *d_net, database *d_sample, float learning_factor, cudaStream_t *streams, int number_of_streams);//returns current cudaStatus
+void train_with_momentum(network *d_net, database *d_sample, float learning_factor, cudaStream_t *streams, int number_of_streams, network** past_weights_and_biases, int number_of_past_weights_and_biases, float momentum);//returns current cudaStatus
 int backpropogate(network *d_net, network *d_change, vector *h_input, vector *d_expected, cudaStream_t stream);//returns current cudaStatus
 vector** calculate_nodes(network *d_net, vector *d_input, cudaStream_t stream);
 
