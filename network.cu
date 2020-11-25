@@ -69,10 +69,8 @@ int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_
 	vector_add<<<number_of_blocks, threads_per_block>>>(d_output, d_biases);
 	apply_signal_function<<<number_of_blocks, threads_per_block>>>(d_output);
 	int error = cudaStreamSynchronize(stream);
-	if(error){
-		printf("systems failure on signal function in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));
-		return error;
-	}
+	if(error){printf("error type = %s\n\n", cudaGetErrorString((cudaError_t) error));
+	printf("systems failure on signal function in calculateLayer calculation error: %s\n", cudaGetErrorName((cudaError_t) error));return error;}
 	return error;
 }
 

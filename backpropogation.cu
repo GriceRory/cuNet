@@ -19,36 +19,6 @@ void train(network *d_net, database *d_sample, float learning_factor, cudaStream
 	cuda_free_network(weight_and_bias_changes);
 }
 
-void train_with_momentum(network *d_net, database *d_sample, float learning_factor, cudaStream_t *streams, int number_of_streams, network** past_weights_and_biases, int number_of_past_weights_and_biases, float momentum){
-	int nodes[d_net->number_of_layers];
-	for(int i = 0; i < d_net->number_of_layers; ++i){
-		nodes[i] = d_net->nodes_in_layer[i];
-	}
-	network weight_and_bias_changes = cuda_build_network(d_net->number_of_layers, nodes);
-	for(int i = 0; i < d_sample->size; i++){
-		network weight_and_bias_changes_sample = cuda_build_network(d_net->number_of_layers, d_net->nodes_in_layer);
-		backpropogate(d_net, &weight_and_bias_changes_sample, d_sample->inputs[i], d_sample->outputs[i], streams[i%number_of_streams]);
-		apply_deltas(weight_and_bias_changes, weight_and_bias_changes_sample, streams,  number_of_streams);
-		cuda_free_network(weight_and_bias_changes_sample);
-	}
-	scalar_multiply(weight_and_bias_changes, learning_factor*momentum);
-	apply_deltas(*d_net, weight_and_bias_changes, streams, number_of_streams);
-
-	printf("here1\n");
-	for(int past_weight_and_bias_change = 0; past_weight_and_bias_change < number_of_past_weights_and_biases; ++past_weight_and_bias_change){
-		scalar_multiply(*past_weights_and_biases[past_weight_and_bias_change], 1-momentum);
-		apply_deltas(*d_net, *past_weights_and_biases[past_weight_and_bias_change], streams, number_of_streams);
-	}
-	printf("here2\n");
-	cuda_free_network(*past_weights_and_biases[number_of_past_weights_and_biases-1]);
-	for(int past_weight_and_bias_change = number_of_past_weights_and_biases - 1; past_weight_and_bias_change > 0; --past_weight_and_bias_change){
-		past_weights_and_biases[past_weight_and_bias_change] = past_weights_and_biases[past_weight_and_bias_change-1];
-	}
-	printf("here3\n");
-	past_weights_and_biases[0] = &weight_and_bias_changes;
-	printf("out\n");
-}
-
 void apply_deltas(network d_net, network d_change, cudaStream_t *streams, int number_of_streams){
 	int threadsPerBlock;
 	int blocks;
