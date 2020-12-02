@@ -111,11 +111,16 @@ void randomize_network(network h_net, float max_weight, float max_bias){
 
 int copy_host_to_device(network *host, network *device){
 	device->number_of_layers = host->number_of_layers;
+	printf("1\n");
 	int error = cudaMemcpy(device->nodes_in_layer, host->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToHost);
+	printf("2\n");
 	int temp = 0;
+	printf("3\n");
 	if(error){printf("host to device nodes in layer error = %d\n", error);}
 	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
+		printf("layer %d of %d\n", layer, host->number_of_layers);
 		temp = copy_matrix(host->weights[layer], device->weights[layer], cudaMemcpyHostToDevice);
+		printf("layer %d of %d\n", layer, host->number_of_layers);
 		error |= temp;
 		if(temp){printf("copy weights to device error %d = %d\n", layer, error);}
 		temp = copy_host_to_device(host->biases[layer], device->biases[layer]);

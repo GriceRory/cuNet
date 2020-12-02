@@ -228,17 +228,17 @@ int copy_host_to_device(matrix *host, matrix *device){
 //this should replace all copy matrix functions.
 //should be able to do the same with all other memory copy functions in refactoring.
 int copy_matrix(matrix* source, matrix* target, cudaMemcpyKind copy) {
-	if (source->width != target->width || source->height != target->height) {
-		source->width = target->width;
-		source->height = target->height;
-		if (copy == cudaMemcpyDeviceToHost || copy == cudaMemcpyHostToHost) {
-			free(target->elements);
-			target->elements = (float*)malloc(sizeof(float) * target->width * target->height);
-		}
-		else {
-			cudaFree(target->elements);
-			cudaMalloc(&(target->elements), sizeof(float) * target->width * target->height);
-		}
+	target->width = source->width;
+	target->height = source->height;
+
+	if (copy == cudaMemcpyDeviceToHost || copy == cudaMemcpyHostToHost) {
+		free(target->elements);
+		target->elements = (float*)malloc(sizeof(float) * target->width * target->height);
+	}else if (copy == cudaMemcpyHostToDevice || copy == cudaMemcpyDeviceToDevice) {
+		cudaFree(target->elements);
+		cudaMalloc(&(target->elements), sizeof(float) * target->width * target->height);
+	}else {
+		printf("memory copy not a valid enum\n");
 	}
 	cudaMemcpy(target->elements, source->elements, sizeof(float) * (source->width) * (source->height), copy);
 	return cudaGetLastError();

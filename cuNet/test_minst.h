@@ -202,6 +202,7 @@ void initialize_minst_testing(){
 	h_net = read_network(network_file_name);//build_network(layers, nodes);
 	d_net = cuda_build_network(layers, nodes);
 	//randomize_network(h_net, max_weight, max_bias);
+	printf("before");
 	copy_host_to_device(&h_net, &d_net);
 	printf("here");
 	for(int i = 0; i < 10; ++i){
