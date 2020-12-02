@@ -203,7 +203,7 @@ matrix* build_matrix(int height, int width){
 	m->elements = (float*)calloc(height*width, sizeof(float));
 	return m;
 }
-int copy_device_to_host(matrix *device, matrix *host){
+/*int copy_device_to_host(matrix *device, matrix *host){
 	if(device->width != host->width || device->height != host->height){
 		host->width = device->width;
 		host->height = device->height;
@@ -213,26 +213,6 @@ int copy_device_to_host(matrix *device, matrix *host){
 	cudaMemcpy(host->elements, device->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyDeviceToHost);
 	return cudaGetLastError();
 }
-
-//to do
-//this should replace all copy matrix functions.
-//should be able to do the same with all other memory copy functions in refactoring.
-int copy_matrix(matrix *source, matrix *target, cudaMemcpyKind copy) {
-	if (source->width != target->width || source->height != target->height) {
-		source->width = target->width;
-		source->height = target->height;
-		if (copy == cudaMemcpyDeviceToHost  || copy == cudaMemcpyHostToHost) {
-			free(target->elements);
-			target->elements = (float*)malloc(sizeof(float) * target->width * target->height);
-		}else {
-			cudaFree(target->elements);
-			cudaMalloc(&(target->elements), sizeof(float) * target->width * target->height);
-		}
-	}
-	cudaMemcpy(target->elements, source->elements, sizeof(float) * (source->width) * (source->height), copy);
-	return cudaGetLastError();
-}
-
 int copy_host_to_device(matrix *host, matrix *device){
 	if(device->width != host->width || device->height != host->height){
 		device->width = host->width;
@@ -242,7 +222,28 @@ int copy_host_to_device(matrix *host, matrix *device){
 	}
 	cudaMemcpy(device->elements, host->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyHostToDevice);
 	return cudaGetLastError();
+}*/
+
+//to do
+//this should replace all copy matrix functions.
+//should be able to do the same with all other memory copy functions in refactoring.
+int copy_matrix(matrix* source, matrix* target, cudaMemcpyKind copy) {
+	if (source->width != target->width || source->height != target->height) {
+		source->width = target->width;
+		source->height = target->height;
+		if (copy == cudaMemcpyDeviceToHost || copy == cudaMemcpyHostToHost) {
+			free(target->elements);
+			target->elements = (float*)malloc(sizeof(float) * target->width * target->height);
+		}
+		else {
+			cudaFree(target->elements);
+			cudaMalloc(&(target->elements), sizeof(float) * target->width * target->height);
+		}
+	}
+	cudaMemcpy(target->elements, source->elements, sizeof(float) * (source->width) * (source->height), copy);
+	return cudaGetLastError();
 }
+
 int cuda_free_matrix(matrix *device){
 	cudaFree(device->elements);
 	if(cudaPeekAtLastError() != cudaSuccess){

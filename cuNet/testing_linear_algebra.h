@@ -26,9 +26,9 @@ int test_matrix_memory_functions(int height, int width, float max){
 	matrix *B = build_matrix(height, width);
 	randomize_matrix(A, max);
 	
-	int copy_A_to_d_A = copy_host_to_device(A, d_A);
+	int copy_A_to_d_A = copy_matrix(A, d_A, cudaMemcpyHostToDevice);
 	failed = failed || copy_A_to_d_A;
-	int copy_d_A_to_B = copy_device_to_host(d_A, B);
+	int copy_d_A_to_B = copy_matrix(d_A, B, cudaMemcpyDeviceToHost);
 	failed = failed || copy_d_A_to_B;
 	int free_d_A = cuda_free_matrix(d_A);
 	failed = failed || free_d_A;
@@ -111,7 +111,7 @@ int test_matrix_multiply(int height, int width, float max){
 	randomize_matrix(M, max);
 	randomize_vector(in, max);
 	int vector_copy_host_to_device = copy_host_to_device(in, d_in);
-	int matrix_copy_host_to_device = copy_host_to_device(M, d_M);
+	int matrix_copy_host_to_device = copy_matrix(M, d_M, cudaMemcpyHostToDevice);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
 	matrix_multiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
@@ -119,7 +119,7 @@ int test_matrix_multiply(int height, int width, float max){
 	int matrix_multiply = cudaGetLastError();
 	int vector_out_copy_device_to_host = copy_device_to_host(d_out, out);
 	int vector_in_copy_device_to_host = copy_device_to_host(d_in, in);
-	int matrix_copy_device_to_host = copy_device_to_host(d_M, M);
+	int matrix_copy_device_to_host = copy_matrix(d_M, M, cudaMemcpyDeviceToHost);
 	for(int col = 0; col < width; col++){
 		float temp = 0.0;
 		for(int row = 0; row < height; row++){
@@ -194,15 +194,15 @@ int test_matrix_add(int height, int width, float max){
 	randomize_matrix(A, max);
 	randomize_matrix(B, max);
 
-	int copy_A_to_d_A = copy_host_to_device(A, d_A);
-	int copy_B_to_d_B = copy_host_to_device(B, d_B);
+	int copy_A_to_d_A = copy_matrix(A, d_A, cudaMemcpyHostToDevice);
+	int copy_B_to_d_B = copy_matrix(B, d_B, cudaMemcpyHostToDevice);
 
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = height*width/BLOCK_SIZE + 1;
 	matrix_add<<<blocks_per_grid, threads_per_block>>>(*d_A, *d_B);
 	cudaDeviceSynchronize();
 	int kernel_execution = cudaGetLastError();
-	int copy_d_A_to_C = copy_device_to_host(d_A, C);
+	int copy_d_A_to_C = copy_matrix(d_A, C, cudaMemcpyDeviceToHost);
 
 	for(int i = 0; i < width; i++){
 		for(int j = 0; j < height; j++){

@@ -153,7 +153,7 @@ int test_calculate_layer(){
 	randomize_vector(input, biasMax);
 	randomize_vector(biases, biasMax);
 
-	copy_host_to_device(weights, d_weights);
+	copy_matrix(weights, d_weights, cudaMemcpyHostToDevice);
 	copy_host_to_device(input, d_input);
 	copy_host_to_device(biases, d_biases);
 

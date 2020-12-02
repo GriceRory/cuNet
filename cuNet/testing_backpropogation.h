@@ -151,7 +151,7 @@ int test_calculate_next_layer_weight_changes(){
 	int kernel_execution = cudaDeviceSynchronize();
 	if(kernel_execution){printf("failed with error %s\n", cudaGetErrorString((cudaError_t)kernel_execution));return kernel_execution;}
 	failed |= kernel_execution;
-	copy_device_to_host(d_change.weights[0], temp);
+	copy_matrix(d_change.weights[0], temp, cudaMemcpyDeviceToHost);
 	matrix *test = host_calculate_next_layer_weight_changes(h_node_outputs[0], h_node_outputs[1], h_node_derivatives[1]);
 
 	for(int row = 0; row < d_change.weights[0]->height; row++){

@@ -115,7 +115,7 @@ int copy_host_to_device(network *host, network *device){
 	int temp = 0;
 	if(error){printf("host to device nodes in layer error = %d\n", error);}
 	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
-		temp = copy_host_to_device(host->weights[layer], device->weights[layer]);
+		temp = copy_matrix(host->weights[layer], device->weights[layer], cudaMemcpyHostToDevice);
 		error |= temp;
 		if(temp){printf("copy weights to device error %d = %d\n", layer, error);}
 		temp = copy_host_to_device(host->biases[layer], device->biases[layer]);
@@ -130,7 +130,7 @@ int copy_device_to_host(network *device, network *host){
 	int temp = 0;
 	if(error){printf("device to host nodes in layer error = %d\n", temp);}
 	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
-		temp = copy_device_to_host(device->weights[layer], host->weights[layer]);
+		temp = copy_matrix(device->weights[layer], host->weights[layer], cudaMemcpyDeviceToHost);
 		error |= temp;
 		if(temp){printf("copy weights to host error layer = %d, error = %d\n", layer,  temp);}
 		temp = copy_device_to_host(device->biases[layer], host->biases[layer]);

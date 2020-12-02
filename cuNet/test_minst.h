@@ -199,14 +199,11 @@ void initialize_minst_testing(){
 	for(int i = 0; i < layers; ++i){
 		nodes[i] = training->inputs[0]->length - ((float)(training->inputs[0]->length - training->outputs[0]->length)/(layers-1))*i;
 	}
-	printf("here");
 	h_net = read_network(network_file_name);//build_network(layers, nodes);
-	printf("here1");
 	d_net = cuda_build_network(layers, nodes);
-	printf("here2");
 	//randomize_network(h_net, max_weight, max_bias);
 	copy_host_to_device(&h_net, &d_net);
-	
+	printf("here");
 	for(int i = 0; i < 10; ++i){
 		possible[i] = build_vector(10);
 		set_element(*possible[i], i, 1);
