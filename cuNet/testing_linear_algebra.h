@@ -61,8 +61,8 @@ int test_vector_memory_functions(int length, float max){
 
 	randomize_vector(A, max);
 
-	failed |= copy_host_to_device(A, d_A);
-	failed |= copy_device_to_host(d_A, B);
+	failed |= copy_vector(A, d_A, cudaMemcpyHostToDevice);
+	failed |= copy_vector(d_A, B, cudaMemcpyDeviceToHost);
 
 	failed |= cuda_free_vector(d_A);
 
@@ -110,15 +110,15 @@ int test_matrix_multiply(int height, int width, float max){
 
 	randomize_matrix(M, max);
 	randomize_vector(in, max);
-	int vector_copy_host_to_device = copy_host_to_device(in, d_in);
+	int vector_copy_host_to_device = copy_vector(in, d_in, cudaMemcpyHostToDevice);
 	int matrix_copy_host_to_device = copy_matrix(M, d_M, cudaMemcpyHostToDevice);
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = width;
 	matrix_multiply<<<blocks_per_grid, threads_per_block>>>(*d_in, *d_M, *d_out);
 	cudaDeviceSynchronize();
 	int matrix_multiply = cudaGetLastError();
-	int vector_out_copy_device_to_host = copy_device_to_host(d_out, out);
-	int vector_in_copy_device_to_host = copy_device_to_host(d_in, in);
+	int vector_out_copy_device_to_host = copy_vector(d_out, out, cudaMemcpyDeviceToHost);
+	int vector_in_copy_device_to_host = copy_vector(d_in, in, cudaMemcpyDeviceToHost);
 	int matrix_copy_device_to_host = copy_matrix(d_M, M, cudaMemcpyDeviceToHost);
 	for(int col = 0; col < width; col++){
 		float temp = 0.0;
@@ -154,15 +154,15 @@ int test_vector_add(int length, float max){
 	randomize_vector(v, max);
 	randomize_vector(w, max);
 
-	int copy_v_to_d_v = copy_host_to_device(v, d_v);
-	int copy_w_to_d_w = copy_host_to_device(w, d_w);
+	int copy_v_to_d_v = copy_vector(v, d_v, cudaMemcpyHostToDevice);
+	int copy_w_to_d_w = copy_vector(w, d_w, cudaMemcpyHostToDevice);
 
 	int threads_per_block = BLOCK_SIZE;
 	int blocks_per_grid = (length / BLOCK_SIZE) + 1;
 	vector_add<<<blocks_per_grid, threads_per_block>>>(*d_v, *d_w);
 	cudaDeviceSynchronize();
 	int kernel_execution = cudaGetLastError();
-	int copy_d_v_to_u = copy_device_to_host(d_v, u);
+	int copy_d_v_to_u = copy_vector(d_v, u, cudaMemcpyDeviceToHost);
 
 
 	for(int i = 0; i < length; i++){

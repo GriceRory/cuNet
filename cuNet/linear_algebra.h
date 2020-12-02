@@ -52,8 +52,6 @@ __device__ void subtract_element(matrix m, int rowFrom, int colFrom, int rowTo, 
 matrix* cuda_build_identity_matrix();
 matrix* cuda_build_matrix(int height, int width);
 matrix* build_matrix(int height, int width);
-//int copy_device_to_host(matrix *device, matrix *host);
-//int copy_host_to_device(matrix *host, matrix *device);
 int copy_matrix(matrix* source, matrix* target, cudaMemcpyKind copy);
 int cuda_free_matrix(matrix *device);
 void free_matrix(matrix *host);
@@ -64,6 +62,5 @@ vector* cuda_build_vector(int length);
 int cuda_free_vector(vector *device);
 void free_vector(vector *host);
 void randomize_vector(vector *h_v, float max);
-int copy_host_to_device(vector *host, vector *device);
-int copy_device_to_host(vector *device, vector *host);
+int copy_vector(vector* source, vector* target, cudaMemcpyKind copy);
 

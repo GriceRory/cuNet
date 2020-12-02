@@ -72,7 +72,7 @@ int test_calculate_this_layer_node_derivatives(){
 
 	calculate_this_layer_node_derivatves<<<blocks, threadsPerBlock>>>(*d_net.weights[0], *(d_node_outputs[layers-2]), *d_expected, *node_derivatives_this_layer);
 	cudaDeviceSynchronize();
-	copy_device_to_host(node_derivatives_this_layer, host_node_derivatives_this_layer);
+	copy_vector(node_derivatives_this_layer, host_node_derivatives_this_layer, cudaMemcpyDeviceToHost);
 
 
 	vector* host_expected_node_derivatives_this_layer = host_calculate_this_layer_node_derivatives(*h_net.weights[0], *h_node_outputs[layers-2], *h_expected);
@@ -97,7 +97,7 @@ int test_calculate_node_derivatives(){
 
 	for(int layer = 0; layer < layers; layer++){
 		h_node_derivatives[layer] = build_vector(10);
-		copy_device_to_host(d_node_derivatives[layer], h_node_derivatives[layer]);
+		copy_vector(d_node_derivatives[layer], h_node_derivatives[layer], cudaMemcpyDeviceToHost);
 		for(int element = 0; element < host_node_derivatives_test[layer]->length; element++){
 			float expected = get_element(*host_node_derivatives_test[layer], element);
 			float actual = get_element(*h_node_derivatives[layer], element);
@@ -122,8 +122,8 @@ int test_calculate_last_layer_node_derivatives(){
 	int failed = cudaDeviceSynchronize();
 	if(failed){printf("\nfailed kernel execution with cuda status %s\n", cudaGetErrorName((cudaError_t)failed));}
 	vector *host_difference = build_vector(h_input->length);
-	copy_device_to_host(difference, host_difference);
-
+	copy_vector(difference, host_difference, cudaMemcpyDeviceToHost);
+	
 	for(int element = 0; element < host_difference->length; element++){
 		if(difference_tollerance(get_element(*host_difference, element)/2, get_element(*h_input, element) - get_element(*h_expected, element), 0.005)){
 			failed = 1;
@@ -194,7 +194,7 @@ int test_calculate_next_layer_bias_changes(){
 	int kernel_execution = cudaDeviceSynchronize();
 	if(kernel_execution){printf("failed with error %s\n", cudaGetErrorString((cudaError_t)kernel_execution));return kernel_execution;}
 	failed |= kernel_execution;
-	copy_device_to_host(d_change.biases[1], temp);
+	copy_vector(d_change.biases[1], temp, cudaMemcpyDeviceToHost);
 	vector *test = host_calculate_next_layer_bias_changes(*h_node_outputs[1], *h_node_derivatives[2]);
 
 	for(int element = 0; element < temp->length; element++){
@@ -293,20 +293,20 @@ void initialize_globals(){
 	randomize_vector(h_expected, max_biases);
 
 	copy_host_to_device(&h_net, &d_net);
-	copy_host_to_device(h_input, d_input);
-	copy_host_to_device(h_expected, d_expected);
+	copy_vector(h_input, d_input, cudaMemcpyHostToDevice);
+	copy_vector(h_expected, d_expected, cudaMemcpyHostToDevice);
 
 	d_node_outputs = calculate_nodes(&d_net, d_input, streams[0]);
 	h_node_outputs = (vector**)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_outputs[layer] = build_vector(10);
-		copy_device_to_host(d_node_outputs[layer], h_node_outputs[layer]);
+		copy_vector(d_node_outputs[layer], h_node_outputs[layer], cudaMemcpyDeviceToHost);
 	}
 	d_node_derivatives = calculate_node_derivatives(d_net, d_node_outputs, d_expected, streams[0]);
 	h_node_derivatives = (vector **)malloc(sizeof(vector*)*h_net.number_of_layers);
 	for(int layer = 0; layer < layers; layer++){
 		h_node_derivatives[layer] = build_vector(nodes[layer]);
-		copy_device_to_host(d_node_derivatives[layer], h_node_derivatives[layer]);
+		copy_vector(d_node_derivatives[layer], h_node_derivatives[layer], cudaMemcpyDeviceToHost);
 	}
 	printf("finished initializing\n");
 }

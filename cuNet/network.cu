@@ -45,7 +45,7 @@ void scalar_multiply(network d_net, float learning_factor){
 int run_network(network d_net, vector h_input, vector *h_output, cudaStream_t stream){
 	vector *current_node_values = cuda_build_vector(d_net.nodes_in_layer[0]);
 	vector *next_node_values = cuda_build_vector(d_net.nodes_in_layer[1]);
-	copy_host_to_device(&h_input, current_node_values);
+	copy_vector(&h_input, current_node_values, cudaMemcpyHostToDevice);
 	for(int current_layer = 0; current_layer < d_net.number_of_layers - 1; current_layer++){
 		calculate_layer(*d_net.weights[current_layer], *d_net.biases[current_layer], *current_node_values, *next_node_values, stream);
 		cuda_free_vector(current_node_values);
@@ -53,7 +53,7 @@ int run_network(network d_net, vector h_input, vector *h_output, cudaStream_t st
 		current_node_values = next_node_values;
 		next_node_values = cuda_build_vector(d_net.nodes_in_layer[current_layer + 2]);
 	}
-	copy_device_to_host(current_node_values, h_output);
+	copy_vector(current_node_values, h_output, cudaMemcpyDeviceToHost);
 	cuda_free_vector(current_node_values);
 	cuda_free_vector(next_node_values);
 	return cudaGetLastError();
@@ -123,7 +123,7 @@ int copy_host_to_device(network *host, network *device){
 		printf("layer %d of %d\n", layer, host->number_of_layers);
 		error |= temp;
 		if(temp){printf("copy weights to device error %d = %d\n", layer, error);}
-		temp = copy_host_to_device(host->biases[layer], device->biases[layer]);
+		temp = copy_vector(host->biases[layer], device->biases[layer], cudaMemcpyHostToDevice);
 		error |= temp;
 		if(temp){printf("copy biases to device error %d = %d\n", layer, error);}
 	}
@@ -138,7 +138,7 @@ int copy_device_to_host(network *device, network *host){
 		temp = copy_matrix(device->weights[layer], host->weights[layer], cudaMemcpyDeviceToHost);
 		error |= temp;
 		if(temp){printf("copy weights to host error layer = %d, error = %d\n", layer,  temp);}
-		temp = copy_device_to_host(device->biases[layer], host->biases[layer]);
+		temp = copy_vector(device->biases[layer], host->biases[layer], cudaMemcpyDeviceToHost);
 		error |= temp;
 		if(temp){printf("copy biases to host error layer = %d, error = %d\n", layer, temp);}
 	}

@@ -69,8 +69,8 @@ void copy_host_to_device(database *host, database *device){
 	for(int pair = 0; pair < host->size; pair++){
 		device->inputs[pair] = cuda_build_vector(host->inputs[pair]->length);
 		device->outputs[pair] = cuda_build_vector(host->outputs[pair]->length);
-		copy_host_to_device(host->inputs[pair], device->inputs[pair]);
-		copy_host_to_device(host->outputs[pair], device->outputs[pair]);
+		copy_vector(host->inputs[pair], device->inputs[pair], cudaMemcpyHostToDevice);
+		copy_vector(host->outputs[pair], device->outputs[pair], cudaMemcpyHostToDevice);
 	}
 }
 void copy_device_to_host(database *device, database *host){
@@ -78,8 +78,8 @@ void copy_device_to_host(database *device, database *host){
 	for(int pair = 0; pair < host->size; pair++){
 		host->inputs[pair] = build_vector(device->inputs[pair]->length);
 		host->outputs[pair] = build_vector(device->outputs[pair]->length);
-		copy_device_to_host(device->inputs[pair], host->inputs[pair]);
-		copy_device_to_host(device->outputs[pair], host->outputs[pair]);
+		copy_vector(device->inputs[pair], host->inputs[pair], cudaMemcpyDeviceToHost);
+		copy_vector(device->outputs[pair], host->outputs[pair], cudaMemcpyDeviceToHost);
 	}
 }
 

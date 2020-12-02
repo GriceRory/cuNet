@@ -154,13 +154,13 @@ int test_calculate_layer(){
 	randomize_vector(biases, biasMax);
 
 	copy_matrix(weights, d_weights, cudaMemcpyHostToDevice);
-	copy_host_to_device(input, d_input);
-	copy_host_to_device(biases, d_biases);
+	copy_vector(input, d_input, cudaMemcpyHostToDevice);
+	copy_vector(biases, d_biases, cudaMemcpyHostToDevice);
 
 	cudaDeviceSynchronize();
 	calculate_layer(*d_weights, *d_biases, *d_input, *d_output, streams[0]);
 	cudaDeviceSynchronize();
-	copy_device_to_host(d_output, output_test);
+	copy_vector(d_output, output_test, cudaMemcpyDeviceToHost);
 	cudaDeviceSynchronize();
 
 	output = host_calculate_layer(*weights, *biases, *input);

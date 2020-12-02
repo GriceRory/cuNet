@@ -203,30 +203,7 @@ matrix* build_matrix(int height, int width){
 	m->elements = (float*)calloc(height*width, sizeof(float));
 	return m;
 }
-/*int copy_device_to_host(matrix *device, matrix *host){
-	if(device->width != host->width || device->height != host->height){
-		host->width = device->width;
-		host->height = device->height;
-		free(host->elements);
-		host->elements = (float*)malloc(sizeof(float) * device->width * device->height);
-	}
-	cudaMemcpy(host->elements, device->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyDeviceToHost);
-	return cudaGetLastError();
-}
-int copy_host_to_device(matrix *host, matrix *device){
-	if(device->width != host->width || device->height != host->height){
-		device->width = host->width;
-		device->height = host->height;
-		cudaFree(device->elements);
-		cudaMalloc(&(device->elements), sizeof(float) * device->width * device->height);
-	}
-	cudaMemcpy(device->elements, host->elements, sizeof(float)*(host->width)*(host->height), cudaMemcpyHostToDevice);
-	return cudaGetLastError();
-}*/
 
-//to do
-//this should replace all copy matrix functions.
-//should be able to do the same with all other memory copy functions in refactoring.
 int copy_matrix(matrix* source, matrix* target, cudaMemcpyKind copy) {
 	target->width = source->width;
 	target->height = source->height;
@@ -282,25 +259,20 @@ void free_vector(vector *host){
 	free((void*)host);
 	return;
 }
-int copy_device_to_host(vector *device, vector *host){
-	if(host->length != device->length){
-		host->length = device->length;
-		free(host->elements);
-		host->elements = (float*)malloc(sizeof(float)*host->length);
-	}
-	cudaMemcpy(host->elements, device->elements, sizeof(float)*host->length, cudaMemcpyDeviceToHost);
-	return cudaGetLastError();
-}
-int copy_host_to_device(vector *host, vector *device){
-	if(device->length != host->length){
-		device->length = host->length;
-		cudaFree(device->elements);
-		cudaMalloc(&(device->elements), sizeof(float)*device->length);
-	}
 
-	return_cuda_status
-	cudaMemcpy(device->elements, host->elements, sizeof(float)*host->length, cudaMemcpyHostToDevice);
-	return cudaPeekAtLastError();
+int copy_vector(vector *source, vector *target, cudaMemcpyKind copy) {
+	target->length = source->length;
+	if (copy == cudaMemcpyDeviceToHost || copy == cudaMemcpyHostToHost) {
+		free(target->elements);
+		target->elements = (float*)malloc(sizeof(float)*target->length);
+	}else if (copy == cudaMemcpyHostToDevice || copy == cudaMemcpyDeviceToDevice) {
+		cudaFree(target->elements);
+		cudaMalloc(&(target->elements), sizeof(float) * target->length);
+	}else {
+		printf("memory copy not a valid enum\n");
+	}
+	cudaMemcpy(target->elements, source->elements, sizeof(float) * (source->length), copy);
+	return cudaGetLastError();
 }
 
 void randomize_matrix(matrix *h_m, float max){
