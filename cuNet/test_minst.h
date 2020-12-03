@@ -20,7 +20,7 @@ int test_minst(){
 
 		float error = 0;
 		database* h_sample = build_database(sample_size);
-		copy_device_to_host(d_training_sample, h_sample);
+		copy_database(d_training_sample, h_sample, cudaMemcpyDeviceToHost);
 		for (int element = 0; element < sample_size; element++) {
 			error += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element % number_of_streams]);
 		}
@@ -83,7 +83,7 @@ int test_minst(){
 		}else if(probability_correct > 0.8 || !(epoc%10)){
 			d_training_sample = sample_database(d_training, sample_size);
 			database *h_training_sample = build_database(d_training_sample->size);
-			copy_device_to_host(d_training_sample, h_training_sample);
+			copy_database(d_training_sample, h_training_sample, cudaMemcpyDeviceToHost);
 			probability_correct = correct(d_net, *h_training_sample, possible, 10, streams, number_of_streams);
 			error = 0;
 			for(int i = 0; i < h_training_sample->size; ++i){
@@ -94,7 +94,7 @@ int test_minst(){
 		}
 		printf("\n\n");
 	}
-	copy_device_to_host(&d_net, &h_net);
+	copy_network(&d_net, &h_net, cudaMemcpyDeviceToHost);
 	write_network(h_net, network_file_name);
 	float testing_success_probability = correct(d_net, *testing, possible, 10, streams, number_of_streams);
 	if(epocs_with_increased_error/max_epocs > 0.1){
@@ -187,8 +187,8 @@ void initialize_minst_testing(){
 	d_training = build_database(training->size);
 	d_testing = build_database(testing->size);
 
-	copy_host_to_device(training, d_training);
-	copy_host_to_device(testing, d_testing);
+	copy_database(training, d_training, cudaMemcpyHostToDevice);
+	copy_database(testing, d_testing, cudaMemcpyHostToDevice);
 
 
 	d_training_sample = sample_database(d_training, sample_size);
@@ -203,7 +203,7 @@ void initialize_minst_testing(){
 	d_net = cuda_build_network(layers, nodes);
 	//randomize_network(h_net, max_weight, max_bias);
 	printf("before");
-	copy_host_to_device(&h_net, &d_net);
+	copy_network(&h_net, &d_net, cudaMemcpyHostToDevice);
 	printf("here");
 	for(int i = 0; i < 10; ++i){
 		possible[i] = build_vector(10);

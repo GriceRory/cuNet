@@ -9,15 +9,6 @@ int difference_tollerance(float actual, float expected, float tollerance){
 //there appears to be some issue with GIT that stops me from commiting that I dont want to deal with right now
 
 
-//26 nov 2020
-//good news, now I know why it shits itself.
-//remember yesterday when I was looking at all the file loading for the MINST database
-//and I thought "I'm going to have to change those to work with a windows file system from
-//my Ubuntu install."? Yea, I haven't done that yet.
-
-
-//27 nov 2020
-//changed all the file name locations to a D:\MINST
 //line 232 of linear_algebra.cu is having issues for some reason, commented it out.
 
 

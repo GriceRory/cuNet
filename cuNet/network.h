@@ -20,8 +20,11 @@ void cuda_free_network(network d_net);
 network build_network(int layers, int *nodes_in_layer);
 network cuda_build_network(int layers, int *nodes_in_layer);
 void randomize_network(network h_net, float max_weight, float max_bias);
-int copy_host_to_device(network *host, network *device);
-int copy_device_to_host(network *device, network *host);
+
+int copy_network(network* source, network* target, cudaMemcpyKind copy);
+//int copy_host_to_device(network *host, network *device);
+//int copy_device_to_host(network *device, network *host);
+
 int run_network(network d_net, vector h_input, vector *h_output, cudaStream_t stream);
 int calculate_layer(matrix d_weights, vector d_biases, vector d_input, vector d_output, cudaStream_t stream);
 __device__ __host__ float get_weight(network h_net, int layer, int node_from, int node_to);

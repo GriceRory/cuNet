@@ -83,7 +83,7 @@ int test_copy_to_device_functions(int layers){
 	network net_copy = build_network(layers, nodes);
 	network net_device = cuda_build_network(layers, nodes);
 	randomize_network(net, weightMax, biasMax);
-	failed |= copy_host_to_device(&net, &net_device);
+	failed |= copy_network(&net, &net_device, cudaMemcpyHostToDevice);
 	if(failed != cudaSuccess){printf("cudaError on host to device = %d\n", failed);}
 	cudaDeviceSynchronize();
 
@@ -102,10 +102,10 @@ int test_copy_to_host_functions(int layers){
 	network net_copy = build_network(layers, nodes);
 	network net_device = cuda_build_network(layers, nodes);
 	randomize_network(net, weightMax, biasMax);
-	failed |= copy_host_to_device(&net, &net_device);
+	failed |= copy_network(&net, &net_device, cudaMemcpyHostToDevice);
 	if(failed != cudaSuccess){printf("cudaError on host to device = %d\n", failed);}
 	cudaDeviceSynchronize();
-	failed |= copy_device_to_host(&net_device, &net_copy);
+	failed |= copy_network(&net_device, &net_copy, cudaMemcpyDeviceToHost);
 	cudaDeviceSynchronize();
 
 	for(int layer = 0; layer < layers - 1; layer++){
@@ -187,7 +187,7 @@ int test_run_network(int layers){
 	network net = build_network(layers, nodes);
 	randomize_network(net, weightMax, biasMax);
 	network net_device = cuda_build_network(layers, nodes);
-	int error = copy_host_to_device(&net, &net_device);
+	int error = copy_network(&net, &net_device, cudaMemcpyHostToDevice);
 	if(error != cudaSuccess){printf("error copy host to device = %d\n\n", error);}
 	vector *input = build_vector(net.nodes_in_layer[0]);
 	randomize_vector(input, biasMax);

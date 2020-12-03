@@ -64,6 +64,22 @@ void write_vector(vector *h_v, FILE *file_pointer){
 	fprintf(file_pointer, "\n");
 }
 
+
+void copy_database(database* source, database* target, cudaMemcpyKind copy) {
+	target->size = source->size;
+	for (int pair = 0; pair < target->size; pair++) {
+		if (copy == cudaMemcpyHostToDevice || copy == cudaMemcpyDeviceToDevice) {
+			target->inputs[pair] = cuda_build_vector(source->inputs[pair]->length);
+			target->outputs[pair] = cuda_build_vector(source->outputs[pair]->length);
+		}else {
+			target->inputs[pair] = build_vector(source->inputs[pair]->length);
+			target->outputs[pair] = build_vector(source->outputs[pair]->length);
+		}
+		copy_vector(source->inputs[pair], target->inputs[pair], copy);
+		copy_vector(source->outputs[pair], target->outputs[pair], copy);
+	}
+}
+
 void copy_host_to_device(database *host, database *device){
 	device->size = host->size;
 	for(int pair = 0; pair < host->size; pair++){

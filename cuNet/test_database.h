@@ -52,8 +52,8 @@ int test_copy(){
 	int inputLength = 10;
 	int outputLength = 10;
 	randomize_database(*db, maxInput, maxOutput, inputLength, outputLength);
-	copy_host_to_device(db, db_device);
-	copy_device_to_host(db_device, db_copy);
+	copy_database(db, db_device, cudaMemcpyHostToDevice);
+	copy_database(db_device, db_copy, cudaMemcpyDeviceToHost);
 	for(int pair = 0; pair < db->size; ++pair){
 		for(int element = 0; element < db->inputs[pair]->length; ++element){
 			failed = (db->inputs[pair]->elements[element] > maxInput) || (db->inputs[pair]->elements[element] < -maxInput);

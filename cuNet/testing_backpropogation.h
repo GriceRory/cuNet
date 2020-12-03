@@ -231,7 +231,7 @@ int test_train(){
 	database *h_sample = build_database(dataset_size);
 	database *d_sample = build_database(dataset_size);
 	randomize_database(*h_sample, max_biases, max_biases, nodes[0], nodes[layers-1]);
-	copy_host_to_device(h_sample, d_sample);
+	copy_database(h_sample, d_sample, cudaMemcpyHostToDevice);
 	cudaDeviceSynchronize();
 	for(int epoc = 0; epoc < 20; epoc++){
 		float errors_before = 0;
@@ -261,8 +261,8 @@ int test_backpropogate(){
 	printf("testing backpropogate()\n");
 	float error_previously = error_term(d_net, *h_input, *h_expected, streams[0]);
 	failed |= backpropogate(&d_net, &d_change, d_input, d_expected, streams[0]);
-	copy_device_to_host(&d_net, &h_net);
-	copy_device_to_host(&d_change, &h_change);
+	copy_network(&d_net, &h_net, cudaMemcpyDeviceToHost);
+	copy_network(&d_change, &h_change, cudaMemcpyDeviceToHost);
 
 	apply_deltas(d_net, d_change, streams, number_of_streams);
 	cudaDeviceSynchronize();
@@ -292,7 +292,7 @@ void initialize_globals(){
 	randomize_vector(h_input, max_biases);
 	randomize_vector(h_expected, max_biases);
 
-	copy_host_to_device(&h_net, &d_net);
+	copy_network(&h_net, &d_net, cudaMemcpyHostToDevice);
 	copy_vector(h_input, d_input, cudaMemcpyHostToDevice);
 	copy_vector(h_expected, d_expected, cudaMemcpyHostToDevice);
 
