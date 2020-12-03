@@ -111,9 +111,9 @@ void randomize_network(network h_net, float max_weight, float max_bias){
 
 int copy_network(network *source, network *target, cudaMemcpyKind copy) {
 	target->number_of_layers = source->number_of_layers;
-	int error = cudaMemcpy(target->nodes_in_layer, source->nodes_in_layer, sizeof(int)*source->number_of_layers, copy);
+	int error = cudaMemcpy(target->nodes_in_layer, source->nodes_in_layer, sizeof(int)*source->number_of_layers, cudaMemcpyHostToHost);
 	int temp = 0;
-	if (error) { printf("network memory copy error %d", error); }
+	if (error) { printf("network memory copy error %s\n", cudaGetErrorString((cudaError_t)error)); }
 	for (int layer = 0; layer < target->number_of_layers - 1;++layer) {
 		temp = copy_matrix(source->weights[layer], target->weights[layer], copy);
 		error |= temp;
@@ -124,38 +124,6 @@ int copy_network(network *source, network *target, cudaMemcpyKind copy) {
 	}
 	return error;
 }
-
-int copy_host_to_device(network *host, network *device){
-	device->number_of_layers = host->number_of_layers;
-	int error = cudaMemcpy(device->nodes_in_layer, host->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToHost);
-	int temp = 0;
-	if(error){printf("host to device nodes in layer error = %d\n", error);}
-	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
-		temp = copy_matrix(host->weights[layer], device->weights[layer], cudaMemcpyHostToDevice);
-		error |= temp;
-		if(temp){printf("copy weights to device error %d = %d\n", layer, error);}
-		temp = copy_vector(host->biases[layer], device->biases[layer], cudaMemcpyHostToDevice);
-		error |= temp;
-		if(temp){printf("copy biases to device error %d = %d\n", layer, error);}
-	}
-	return error;
-}
-int copy_device_to_host(network *device, network *host){
-	host->number_of_layers = device->number_of_layers;
-	int error = cudaMemcpy(host->nodes_in_layer, device->nodes_in_layer, sizeof(int)*host->number_of_layers, cudaMemcpyHostToHost);
-	int temp = 0;
-	if(error){printf("device to host nodes in layer error = %d\n", temp);}
-	for(int layer = 0; layer < host->number_of_layers - 1; layer++){
-		temp = copy_matrix(device->weights[layer], host->weights[layer], cudaMemcpyDeviceToHost);
-		error |= temp;
-		if(temp){printf("copy weights to host error layer = %d, error = %d\n", layer,  temp);}
-		temp = copy_vector(device->biases[layer], host->biases[layer], cudaMemcpyDeviceToHost);
-		error |= temp;
-		if(temp){printf("copy biases to host error layer = %d, error = %d\n", layer, temp);}
-	}
-	return error;
-}
-
 
 void free_network(network h_net){
 	free(h_net.nodes_in_layer);

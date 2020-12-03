@@ -141,27 +141,29 @@ vector** calculate_nodes(network *d_net, vector *d_input, cudaStream_t stream){
 }
 
 //to do
-//the memory management will need to be foreted out because some of these functions 
+//the memory management will need to be sorted out because some of these functions 
 //that I am using require host memory, not device memory like I am using in thse.
 float calculate_best_learning_factor(network *d_net, database *d_db, int tests_per_learning_factor, float learning_minimum, float learning_maximum, float learning_step_size, cudaStream_t *streams, int number_of_streams) {
 	float best = learning_minimum;
 	float best_error_improvement = 999999999999999.9;
+	network h_net = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
+	copy_network(d_net, &h_net, cudaMemcpyDeviceToHost);
+	database *h_db = build_database(d_db->size);
+	copy_database(d_db, h_db, cudaMemcpyDeviceToHost);
 	for (float current = learning_minimum; current < learning_maximum; current += learning_step_size) {
 		float error_improvement = 0;
-		for (int element = 0; element < d_db->size; ++element) {
-			error_improvement += error_term(*d_net, *d_db->inputs[element], *d_db->outputs[element], streams[element % number_of_streams]);
+		for (int element = 0; element < h_db->size; ++element) {
+			error_improvement += error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], streams[element % number_of_streams]);
 		}
 
-		database* temp;
-		//copy_database(d_db, temp, cudaMemcpyDeviceToDevice);
 		for (int i = 0; i < tests_per_learning_factor; ++i) {
-			train(d_net, temp, current, streams, number_of_streams);
+			train(d_net, d_db, current, streams, number_of_streams);
 		}
 
-		for (int element = 0; element < d_db->size; ++element) {
-			error_improvement -= error_term(*d_net, *d_db->inputs[element], *d_db->outputs[element], streams[element % number_of_streams]);
+		for (int element = 0; element < h_db->size; ++element) {
+			error_improvement -= error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], streams[element % number_of_streams]);
 		}
-
+		copy_network(&h_net, d_net, cudaMemcpyHostToDevice);
 		error_improvement /= d_db->size;
 
 		if (error_improvement < best_error_improvement) {
@@ -169,6 +171,7 @@ float calculate_best_learning_factor(network *d_net, database *d_db, int tests_p
 			best = current;
 		}
 	}
+	free_network(h_net);
 	return best;
 }
 

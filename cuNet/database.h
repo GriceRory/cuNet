@@ -16,8 +16,6 @@ int read_database_outputs(database *h_db, char *file_name);
 int save_database_inputs(database *h_db, char *file_name);
 int save_database_outputs(database *h_db, char *file_name);
 void copy_database(database* source, database* target, cudaMemcpyKind copy);
-//void copy_host_to_device(database *host, database *device);
-//void copy_device_to_host(database *device, database *host);
 
 void randomize_database(database h_db, float max_input, float max_output, int input_length, int output_length);
 void read_vector(vector *h_v, int vector_length, FILE *file_pointer);

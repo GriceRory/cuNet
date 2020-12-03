@@ -80,25 +80,6 @@ void copy_database(database* source, database* target, cudaMemcpyKind copy) {
 	}
 }
 
-void copy_host_to_device(database *host, database *device){
-	device->size = host->size;
-	for(int pair = 0; pair < host->size; pair++){
-		device->inputs[pair] = cuda_build_vector(host->inputs[pair]->length);
-		device->outputs[pair] = cuda_build_vector(host->outputs[pair]->length);
-		copy_vector(host->inputs[pair], device->inputs[pair], cudaMemcpyHostToDevice);
-		copy_vector(host->outputs[pair], device->outputs[pair], cudaMemcpyHostToDevice);
-	}
-}
-void copy_device_to_host(database *device, database *host){
-	host->size = device->size;
-	for(int pair = 0; pair < host->size; pair++){
-		host->inputs[pair] = build_vector(device->inputs[pair]->length);
-		host->outputs[pair] = build_vector(device->outputs[pair]->length);
-		copy_vector(device->inputs[pair], host->inputs[pair], cudaMemcpyDeviceToHost);
-		copy_vector(device->outputs[pair], host->outputs[pair], cudaMemcpyDeviceToHost);
-	}
-}
-
 void free_database(database *h_db){
 	for(int element = 0; element < h_db->size; element++){
 		free_vector(h_db->inputs[element]);

@@ -39,36 +39,7 @@ int test_minst(){
 		if(!(epoc%epocs_per_test)){
 
 		}
-		if(probability_correct > 0.4){
-			//sample_size = 500;
-			if(probability_correct > 0.5){
-				//sample_size = 1000;
-				learning_factor = 0.000075;
-				if(probability_correct > 0.6){
-					//sample_size = 2000;
-					learning_factor = 0.00005;
-					if(probability_correct > 0.7){
-						//sample_size = 5000;
-						learning_factor = 0.00005;
-						if(probability_correct > 0.8){
-							sample_size = 20000;
-							learning_factor = 0.00002;
-							if(probability_correct > 0.9){
-								sample_size = 30000;
-								learning_factor = 0.00001;
-								if(probability_correct > 0.95){
-									sample_size = training->size;
-									learning_factor = 0.0000001;
-									if(probability_correct > 0.99){
-										learning_factor = 0.0000005;
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
+		
 
 		if(!(epoc%epocs_per_test) && epoc != 0){
 			printf("calculating training statistics\n");
@@ -176,7 +147,6 @@ void initialize_minst_testing(){
 	layers = 10;
 	sample_size = 1000;
 	max_epocs = 100;
-	learning_factor = 0.000005;
 	max_weight = 1.0;
 	max_bias = 1.0;
 	epocs_per_test = 100;
@@ -209,4 +179,8 @@ void initialize_minst_testing(){
 		possible[i] = build_vector(10);
 		set_element(*possible[i], i, 1);
 	}
+	
+	database *d_learning_factor = sample_database(d_training, 50);
+	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.000005, 0.0005, (0.0005 - 0.000005) / 20, streams, number_of_streams);//0.000005;
+
 }
