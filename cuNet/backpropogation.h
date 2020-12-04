@@ -14,4 +14,5 @@ vector** calculate_node_derivatives(network d_net, vector **d_node_outputs, vect
 float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs, cudaStream_t *streams, int number_of_streams);
 vector* classify(vector v, vector **possible_outputs, int number_of_possible_outputs);
 float error_term(network d_net, vector h_input, vector h_expected, cudaStream_t stream);
-float calculate_best_learning_factor(network* d_net, database* d_db, int	 tests_per_learning_factor, float learning_minimum, float learning_maximum, float learning_step_size, cudaStream_t* streams, int number_of_streams);
+float calculate_best_learning_factor(network* d_net, database* d_db, int tests_per_learning_factor, float learning_minimum, float learning_maximum, float learning_step_size, cudaStream_t* streams, int number_of_streams);
+float average_error(network* d_net, database* h_sample, cudaStream_t* streams, int number_of_streams);

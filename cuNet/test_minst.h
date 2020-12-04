@@ -18,26 +18,23 @@ int test_minst(){
 		printf("%i th epoc beginning\n", epoc);
 		
 
-		float error = 0;
+		
 		database* h_sample = build_database(sample_size);
 		copy_database(d_training_sample, h_sample, cudaMemcpyDeviceToHost);
-		for (int element = 0; element < sample_size; element++) {
-			error += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element % number_of_streams]);
-		}
-		float error_before = error;
-		printf("average error before = %f\t", (error/sample_size));
+		float error = average_error(&d_net, h_sample, streams, number_of_streams); 
+		printf("average error before = %f\t", error);
 		train(&d_net, d_training_sample, learning_factor, streams, number_of_streams);
-		error = 0;
-		for (int element = 0; element < sample_size; element++) {
-			error += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element % number_of_streams]);
-		}
-		printf("average error after = %f\t average error improvement = %f\n", (error/sample_size), (error_before - error) / sample_size);
-		epocs_with_increased_error += ((error_before - error) / sample_size < 0);
+		float error_improvement = error - average_error(&d_net, h_sample, streams, number_of_streams);
+		printf("average error after = %f\t average error improvement = %f\n", error, error_improvement);
+		epocs_with_increased_error += (error_improvement < 0);
 		
 		
 		printf("epoc training complete\n");
-		if(!(epoc%epocs_per_test)){
-
+		if(!(epoc%epocs_per_test) && epoc != 0){
+			printf("calculating best learning factor\n");
+			database* d_learning_factor = sample_database(d_training, sample_size/2);
+			learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, learning_factor/2, learning_factor*1.5, learning_factor/10, streams, number_of_streams);//0.000005;
+			printf("best learning factor %f\n", learning_factor);
 		}
 		
 
@@ -56,10 +53,7 @@ int test_minst(){
 			database *h_training_sample = build_database(d_training_sample->size);
 			copy_database(d_training_sample, h_training_sample, cudaMemcpyDeviceToHost);
 			probability_correct = correct(d_net, *h_training_sample, possible, 10, streams, number_of_streams);
-			error = 0;
-			for(int i = 0; i < h_training_sample->size; ++i){
-				error += error_term(d_net, *h_training_sample->inputs[i], *h_training_sample->outputs[i], streams[i%number_of_streams]);
-			}
+			error = average_error(&d_net, h_training_sample, streams, number_of_streams);
 			free_database(h_training_sample);
 			printf("%i th epoc completed with approximate success probability of %f, and error of %f\n", epoc, probability_correct, (float)error/h_training_sample->size);
 		}
@@ -146,10 +140,10 @@ void initialize_minst_testing(){
 	failed = 0;
 	layers = 10;
 	sample_size = 1000;
-	max_epocs = 100;
+	max_epocs = 1000;
 	max_weight = 1.0;
 	max_bias = 1.0;
-	epocs_per_test = 100;
+	epocs_per_test = 50;
 
 	training = build_minst_training_database();
 	testing = build_minst_testing_database();
@@ -172,15 +166,14 @@ void initialize_minst_testing(){
 	h_net = read_network(network_file_name);//build_network(layers, nodes);
 	d_net = cuda_build_network(layers, nodes);
 	//randomize_network(h_net, max_weight, max_bias);
-	printf("before");
 	copy_network(&h_net, &d_net, cudaMemcpyHostToDevice);
-	printf("here");
 	for(int i = 0; i < 10; ++i){
 		possible[i] = build_vector(10);
 		set_element(*possible[i], i, 1);
 	}
 	
-	database *d_learning_factor = sample_database(d_training, 50);
-	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.000005, 0.0005, (0.0005 - 0.000005) / 20, streams, number_of_streams);//0.000005;
-
+	printf("calculating best learning factor\n");
+	database *d_learning_factor = sample_database(d_training, 100);
+	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.0005, 0.005, 0.001, streams, number_of_streams);//0.000005;
+	printf("best learning factor %f\n", learning_factor);
 }

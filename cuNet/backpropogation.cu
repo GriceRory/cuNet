@@ -145,7 +145,7 @@ vector** calculate_nodes(network *d_net, vector *d_input, cudaStream_t stream){
 //that I am using require host memory, not device memory like I am using in thse.
 float calculate_best_learning_factor(network *d_net, database *d_db, int tests_per_learning_factor, float learning_minimum, float learning_maximum, float learning_step_size, cudaStream_t *streams, int number_of_streams) {
 	float best = learning_minimum;
-	float best_error_improvement = 999999999999999.9;
+	float best_error_improvement = 0.0;
 	network h_net = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	copy_network(d_net, &h_net, cudaMemcpyDeviceToHost);
 	database *h_db = build_database(d_db->size);
@@ -166,10 +166,12 @@ float calculate_best_learning_factor(network *d_net, database *d_db, int tests_p
 		copy_network(&h_net, d_net, cudaMemcpyHostToDevice);
 		error_improvement /= d_db->size;
 
-		if (error_improvement < best_error_improvement) {
+		if (error_improvement > best_error_improvement) {
+			printf("best so far\n");
 			best_error_improvement = error_improvement;
 			best = current;
 		}
+		printf("error impovement = %f with learning factor %f\n", error_improvement, current);
 	}
 	free_network(h_net);
 	return best;
@@ -210,4 +212,12 @@ float error_term(network d_net, vector h_input, vector h_expected, cudaStream_t 
 	float error = dist(h_expected, *h_output);
 	free_vector(h_output);
 	return error;
+}
+
+float average_error(network *d_net, database *h_sample, cudaStream_t *streams, int number_of_streams) {
+	float error = 0;
+	for (int element = 0; element < h_sample->size; element++) {
+		error += error_term(*d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element % number_of_streams]);
+	}
+	return error/h_sample->size;
 }
