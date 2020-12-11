@@ -16,14 +16,13 @@ int test_minst(){
 	int epocs_with_increased_error = 0;
 	for(int epoc = 0; epoc < max_epocs; ++epoc){
 		printf("%i th epoc beginning\n", epoc);
-		
 
-		
-		database* h_sample = build_database(sample_size);
+		database* h_sample = training;// sample_database(training, sample_size);
 		copy_database(d_training_sample, h_sample, cudaMemcpyDeviceToHost);
 		float error = average_error(&d_net, h_sample, streams, number_of_streams); 
 		printf("average error before = %f\t", error);
-		train(&d_net, d_training_sample, learning_factor, streams, number_of_streams);
+
+		train(&d_net, d_training, learning_factor, streams, number_of_streams);
 		float error_improvement = error - average_error(&d_net, h_sample, streams, number_of_streams);
 		printf("average error after = %f\t average error improvement = %f\n", error, error_improvement);
 		epocs_with_increased_error += (error_improvement < 0);
@@ -32,30 +31,16 @@ int test_minst(){
 		printf("epoc training complete\n");
 		if(!(epoc%epocs_per_test) && epoc != 0){
 			printf("calculating best learning factor\n");
-			database* d_learning_factor = sample_database(d_training, sample_size/2);
-			learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, learning_factor/2, learning_factor*1.5, learning_factor/10, streams, number_of_streams);//0.000005;
+			database* d_learning_factor = sample_database(d_training, sample_size);
+			learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, learning_factor/10, learning_factor*3, learning_factor/5, streams, number_of_streams);//0.000005;
 			printf("best learning factor %f\n", learning_factor);
-		}
-		
 
-		if(!(epoc%epocs_per_test) && epoc != 0){
 			printf("calculating training statistics\n");
-			probability_correct = correct(d_net, *training, possible, 10, streams, number_of_streams);
-			error = 0;
-			for(int i = 0; i < training->size; ++i){
-				error += error_term(d_net, *training->inputs[i], *training->outputs[i], streams[i%number_of_streams]);
-			}
-			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error/training->size);
-			if(probability_correct > 0.99){printf("trained to >99%% on training data");break;}
-		
-		}else if(probability_correct > 0.8 || !(epoc%10)){
-			d_training_sample = sample_database(d_training, sample_size);
-			database *h_training_sample = build_database(d_training_sample->size);
-			copy_database(d_training_sample, h_training_sample, cudaMemcpyDeviceToHost);
-			probability_correct = correct(d_net, *h_training_sample, possible, 10, streams, number_of_streams);
-			error = average_error(&d_net, h_training_sample, streams, number_of_streams);
-			free_database(h_training_sample);
-			printf("%i th epoc completed with approximate success probability of %f, and error of %f\n", epoc, probability_correct, (float)error/h_training_sample->size);
+			probability_correct = correct(d_net, *h_sample, possible, 10, streams, number_of_streams);
+			printf("%i th epoc completed with success probability of %f, and error of %f\n", epoc, probability_correct, error);
+			if(probability_correct > 0.975){printf("trained to >99%% on training data");break;}
+			sample_size = d_training->size * exp(-3*error);
+			printf("new sample size of %d", sample_size);
 		}
 		printf("\n\n");
 	}
@@ -75,7 +60,7 @@ int test_minst(){
 database* build_minst_training_database(){
 	int images = 60000, height = 28, width = 28;
 	database *training = build_database(images);
-	FILE *inputs = fopen("D:\\MNIST\\train-images.idx3-ubyte", "r");
+	FILE *inputs = fopen("C:\\MNIST\\train-images.idx3-ubyte", "r");
 	int32_t meta_data[4];
 	fread((void *) meta_data, sizeof(int32_t), 4, inputs);
 
@@ -91,7 +76,7 @@ database* build_minst_training_database(){
 	printf("read training inputs\n");
 
 	uint8_t image_label;
-	FILE *outputs = fopen("D:\\MNIST\\train-labels.idx1-ubyte", "r");
+	FILE *outputs = fopen("C:\\MNIST\\train-labels.idx1-ubyte", "r");
 	fread((void *) meta_data, sizeof(int32_t), 2, outputs);
 	for(int image = 0; image < images; image++){
 		fread((void*) &image_label, sizeof(uint8_t), 1, outputs);
@@ -106,7 +91,7 @@ database* build_minst_training_database(){
 database* build_minst_testing_database(){
 	int images = 10000, height = 28, width = 28;
 	database *testing = build_database(images);
-	FILE *inputs = fopen("D:\\MNIST\\t10k-images.idx3-ubyte", "r");
+	FILE *inputs = fopen("C:\\MNIST\\t10k-images.idx3-ubyte", "r");
 	int32_t meta_data[4];
 	fread((void *) meta_data, sizeof(int32_t), 4, inputs);
 
@@ -122,7 +107,7 @@ database* build_minst_testing_database(){
 	printf("read testing inputs\n");
 
 	uint8_t image_label;
-	FILE *outputs = fopen("D:\\MNIST\\t10k-labels.idx1-ubyte", "r");
+	FILE *outputs = fopen("C:\\MNIST\\t10k-labels.idx1-ubyte", "r");
 	fread((void *) meta_data, sizeof(int32_t), 2, outputs);
 	for(int image = 0; image < images; image++){
 		fread((void*) &image_label, sizeof(uint8_t), 1, outputs);
@@ -139,11 +124,11 @@ void initialize_minst_testing(){
 	printf("testing MINST\n");
 	failed = 0;
 	layers = 10;
-	sample_size = 1000;
-	max_epocs = 1000;
+	sample_size = 50;
+	max_epocs = 5000;
 	max_weight = 1.0;
 	max_bias = 1.0;
-	epocs_per_test = 50;
+	epocs_per_test = 20;
 
 	training = build_minst_training_database();
 	testing = build_minst_testing_database();
@@ -165,7 +150,7 @@ void initialize_minst_testing(){
 	}
 	h_net = read_network(network_file_name);//build_network(layers, nodes);
 	d_net = cuda_build_network(layers, nodes);
-	//randomize_network(h_net, max_weight, max_bias);
+	randomize_network(h_net, max_weight, max_bias);
 	copy_network(&h_net, &d_net, cudaMemcpyHostToDevice);
 	for(int i = 0; i < 10; ++i){
 		possible[i] = build_vector(10);
@@ -173,7 +158,7 @@ void initialize_minst_testing(){
 	}
 	
 	printf("calculating best learning factor\n");
-	database *d_learning_factor = sample_database(d_training, 100);
-	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.0005, 0.005, 0.001, streams, number_of_streams);//0.000005;
+	//database *d_learning_factor = sample_database(d_training, sample_size);
+	learning_factor = calculate_best_learning_factor(&d_net, d_training, 10, 0.000005, 0.00005, 0.00001, streams, number_of_streams);//0.000005;
 	printf("best learning factor %f\n", learning_factor);
 }

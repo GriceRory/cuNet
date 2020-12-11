@@ -37,6 +37,7 @@ int main(void){
 		cudaStreamCreate(&streams[i]);
 	}
 	
+	/*
 	fails = test_linear_algebra();
 	if(!fails){//returns a failure failure of 1, success of 0
 		printf("testing linear_algebra.h nominal\n\n\n");
@@ -56,7 +57,7 @@ int main(void){
 	int backpropogation_fails = test_backpropogation();
 	fails |= backpropogation_fails;
 	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n\n\n");}
-	
+	*/
 	
 	int minst_fails = test_minst();
 	fails |= minst_fails;
