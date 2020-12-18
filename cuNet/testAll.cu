@@ -31,7 +31,7 @@ cudaStream_t *streams;
 int main(void){
 	srand(time(NULL));
 	int fails = 0;
-	number_of_streams = 5;
+	number_of_streams = 1;
 	streams = (cudaStream_t*)malloc(sizeof(cudaStream_t)*number_of_streams);
 	for(int i = 0; i < number_of_streams; ++i){
 		cudaStreamCreate(&streams[i]);

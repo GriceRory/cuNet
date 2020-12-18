@@ -181,8 +181,10 @@ float correct(network d_net, database h_db, vector** possible_outputs, int numbe
 	float probability = 0;
 	vector *h_output = build_vector(1);
 	for(int element = 0; element < h_db.size; ++element){
-		//if(!(element%(h_db.size/10))){printf("%f of the way through measuring probability\n", ((float)element/h_db.size));}
 		run_network(d_net, *h_db.inputs[element], h_output, streams[element%number_of_streams]);
+		if (element < 5) { 
+			print_vector(*h_output);
+		}
 		vector *classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
 		if(equals(*classification, *h_db.outputs[element])){
 			++probability;

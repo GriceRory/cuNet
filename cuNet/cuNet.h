@@ -1,0 +1,6 @@
+#include "backpropogation.h"
+#include "globals.h"
+#include "testing_linear_algebra.h"
+#include "testing_network.h"
+#include "test_database.h"
+#include "testing_backpropogation.h"
