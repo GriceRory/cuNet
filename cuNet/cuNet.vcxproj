@@ -88,6 +88,7 @@
     <ClInclude Include="backpropogation.h" />
     <ClInclude Include="database.h" />
     <ClInclude Include="globals.h" />
+    <ClInclude Include="cuNet.h" />
     <ClInclude Include="linear_algebra.h" />
     <ClInclude Include="network.h" />
     <ClInclude Include="testing_backpropogation.h" />
