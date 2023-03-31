@@ -29,7 +29,7 @@ cudaStream_t *streams;
 #include "test_minst.h"
 
 int main(void){
-	srand(time(NULL));
+	srand((unsigned int)time(NULL));
 	int fails = 0;
 	number_of_streams = 1;
 	streams = (cudaStream_t*)malloc(sizeof(cudaStream_t)*number_of_streams);
@@ -65,7 +65,6 @@ int main(void){
 	
 
 	if(!fails){
-		printf("\e[1;1H\e[2J");
 		printf("\nall systems nominal\n\n");
 	}else{
 		printf("\n\nsystems failure\n\n");

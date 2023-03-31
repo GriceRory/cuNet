@@ -46,7 +46,7 @@ int test_calculate_nodes(){
 		for(int element = 0; element < h_node_outputs[layer]->length; element++){
 			float actual = get_element(*h_node_outputs[layer], element);
 			float expected = get_element(*node_output_host_test[layer], element);
-			if(difference_tollerance(actual, expected, 0.05)){
+			if(difference_tollerance(actual, expected, (float)0.05)){
 				failed = 1;
 				print_vector(*node_output_host_test[layer]);
 				print_vector(*h_node_outputs[layer]);
@@ -78,7 +78,7 @@ int test_calculate_this_layer_node_derivatives(){
 	vector* host_expected_node_derivatives_this_layer = host_calculate_this_layer_node_derivatives(*h_net.weights[0], *h_node_outputs[layers-2], *h_expected);
 
 	for(int element = 0; element < host_expected_node_derivatives_this_layer->length; element++){
-		if(difference_tollerance(get_element(*host_expected_node_derivatives_this_layer, element), get_element(*host_node_derivatives_this_layer, element), 0.05)){
+		if(difference_tollerance(get_element(*host_expected_node_derivatives_this_layer, element), get_element(*host_node_derivatives_this_layer, element), (float)0.05)){
 			failed = 1;
 			printf("host: %f, device %f\n", get_element(*host_expected_node_derivatives_this_layer, element), get_element(*host_node_derivatives_this_layer, element));
 		}
@@ -101,7 +101,7 @@ int test_calculate_node_derivatives(){
 		for(int element = 0; element < host_node_derivatives_test[layer]->length; element++){
 			float expected = get_element(*host_node_derivatives_test[layer], element);
 			float actual = get_element(*h_node_derivatives[layer], element);
-			if(difference_tollerance(expected, actual, 0.05)){
+			if(difference_tollerance(expected, actual, (float)0.05)){
 				failed = 1;
 				printf("\nfailed in layer %d\n", layer);
 				print_vector(*host_node_derivatives_test[layer]);
@@ -125,7 +125,7 @@ int test_calculate_last_layer_node_derivatives(){
 	copy_vector(difference, host_difference, cudaMemcpyDeviceToHost);
 	
 	for(int element = 0; element < host_difference->length; element++){
-		if(difference_tollerance(get_element(*host_difference, element)/2, get_element(*h_input, element) - get_element(*h_expected, element), 0.005)){
+		if(difference_tollerance(get_element(*host_difference, element)/2, get_element(*h_input, element) - get_element(*h_expected, element), (float)0.005)){
 			failed = 1;
 			printf("element %d, derivative %f, expected %f, actual %f\n", element, get_element(*host_difference, element), get_element(*h_input, element), get_element(*h_expected, element));
 		}
@@ -156,7 +156,7 @@ int test_calculate_next_layer_weight_changes(){
 
 	for(int row = 0; row < d_change.weights[0]->height; row++){
 		for(int col = 0; col < d_change.weights[0]->width; col++){
-			if(difference_tollerance(get_element(*temp, row, col), get_element(*test, row, col), 0.005)){
+			if(difference_tollerance(get_element(*temp, row, col), get_element(*test, row, col), (float)0.005)){
 				failed = 1;
 				printf("failed on element row %d, col %d with GPU %f, CPU %f\n", row, col, get_element(*temp, row, col), get_element(*test, row, col));
 			}
@@ -198,7 +198,7 @@ int test_calculate_next_layer_bias_changes(){
 	vector *test = host_calculate_next_layer_bias_changes(*h_node_outputs[1], *h_node_derivatives[2]);
 
 	for(int element = 0; element < temp->length; element++){
-		if(difference_tollerance(get_element(*temp, element), get_element(*test, element), 0.05)){
+		if(difference_tollerance(get_element(*temp, element), get_element(*test, element), (float)0.05)){
 			failed = 1;
 			printf("failed on element element %d, with GPU %f, CPU %f\n", element, get_element(*temp, element), get_element(*test, element));
 		}
@@ -239,7 +239,7 @@ int test_train(){
 		for(int element = 0; element < dataset_size; element++){
 			errors_before += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element%number_of_streams]);
 		}
-		train(&d_net, d_sample, 0.00001, streams, number_of_streams);
+		train(&d_net, d_sample, (float) 0.00001, streams, number_of_streams);
 		cudaDeviceSynchronize();
 		for(int element = 0; element < dataset_size; element++){
 			errors_after += error_term(d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element%number_of_streams]);

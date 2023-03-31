@@ -166,7 +166,7 @@ int test_calculate_layer(){
 	output = host_calculate_layer(*weights, *biases, *input);
 
 	for(int col = 0; col < weights->width; col++){
-		if(difference_tollerance(get_element(*output_test, col), get_element(*output_test, col), 0.001)){
+		if(difference_tollerance(get_element(*output_test, col), get_element(*output_test, col), (float)0.001)){
 
 			printf("failed on index %d with out = %.10f, expected = %.10f\n",
 					col, get_element(*output_test, col), get_element(*output_test, col));
@@ -183,7 +183,7 @@ int test_run_network(int layers){
 		nodes[i] = 500;
 	}
 
-	float weightMax = 0.1, biasMax = 0.2;
+	float weightMax = (float)0.1, biasMax = (float)0.2;
 	network net = build_network(layers, nodes);
 	randomize_network(net, weightMax, biasMax);
 	network net_device = cuda_build_network(layers, nodes);
@@ -198,7 +198,7 @@ int test_run_network(int layers){
 	vector *output_test = host_run_network(net, *input);
 
 	for(int element = 0; element < output->length; element++){
-		if(difference_tollerance(get_element(*output, element), get_element(*output_test, element), 0.0001)){
+		if(difference_tollerance(get_element(*output, element), get_element(*output_test, element), (float)0.0001)){
 			printf("failed on output element = %d, output = %f, expected = %f\n", element, get_element(*output, element), get_element(*output_test, element));
 			failed = 1;
 		}

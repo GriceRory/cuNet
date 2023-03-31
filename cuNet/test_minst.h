@@ -5,19 +5,29 @@ int test_minst();
 database* build_minst_training_database();
 database* build_minst_testing_database();
 void initialize_minst_testing();
-void print_letter(vector h_letter);
-
-
+void print_minst_letter(vector h_letter);
+vector** read_IDX(char* file);
+int get_magic(int8_t magic);
+vector* read_letter(FILE *f, int size, int length);
 
 int test_minst(){
-	initialize_minst_testing();
+	vector** training_images = read_IDX((char *)"C:\\MNIST\\train-images.idx3-ubyte");
+
+	//training_images = read_IDX((char*)"C:\\MNIST\\t10k-images.idx3-ubyte");
+
+	//vector** training_labels = read_IDX("C:\\MNIST\\train-labels.idx1-ubyte");
+
+	
+	/*initialize_minst_testing();
 	
 	printf("\n\nstarting training\n\n\n");
 	database* h_sample = sample_database(training, sample_size);
+	print_minst_letter(*(h_sample->inputs[0]));
 	for (int i = 0; i < 5; ++i) { 
-		print_letter(*(h_sample->inputs[i])); 
+		print_minst_letter(*(h_sample->inputs[i])); 
 		print_vector(*(h_sample->outputs[i]));
 	}
+	
 	float probability_correct = correct(d_net, *h_sample, possible, 10, streams, number_of_streams);
 	int epocs_with_increased_error = 0;
 	for(int epoc = 0; epoc < max_epocs; ++epoc){
@@ -58,18 +68,33 @@ int test_minst(){
 		printf("failed with %f epocs_with_increased_error / max_epocs\n", epocs_with_increased_error / max_epocs);
 	}
 
-	printf("testing probability of success was %f\n", testing_success_probability);
+	printf("testing probability of success was %f\n", testing_success_probability);*/
 	return failed;
 }
 
+unsigned int reverse(unsigned int x)
+{
+	unsigned int swapped = ((x >> 24) & 0xff) | // move byte 3 to byte 0
+		((x << 8) & 0xff0000) | // move byte 1 to byte 2
+		((x >> 8) & 0xff00) | // move byte 2 to byte 1
+		((x << 24) & 0xff000000); // byte 0 to byte 3
+	return swapped;
+
+}
 
 database* build_minst_training_database(){
 	int images = 60000, height = 28, width = 28;
 	database *training = build_database(images);
 	FILE *inputs = fopen("C:\\MNIST\\train-images.idx3-ubyte", "r");
 	int32_t meta_data[4];
+	//fread((void*)meta_data, sizeof(uint8_t), 1, inputs);
 	fread((void *) meta_data, sizeof(int32_t), 4, inputs);
-
+	printf("%d, %d, %d, %d\n\n", meta_data[0], meta_data[1], meta_data[2], meta_data[3]);
+	for (int i = 0; i < 4; ++i) {
+		int32_t d = meta_data[i];
+		meta_data[i] = reverse(d);
+	}
+	printf("%d, %d, %d, %d\n\n", meta_data[0], meta_data[1], meta_data[2], meta_data[3]);
 	uint8_t *image_data = (uint8_t*)malloc(sizeof(uint8_t) * height*width);
 	for(int image = 0; image < images; image++){
 		fread((void *) image_data, sizeof(uint8_t), height*width, inputs);
@@ -94,6 +119,45 @@ database* build_minst_training_database(){
 	return training;
 }
 
+vector** read_IDX(char* file) {
+	fpos_t pos, last_pos;
+	int difference = 0;
+	FILE* f = fopen(file, "r");
+	uint8_t magic_number[4];
+	fgetpos(f, &last_pos);
+	fread((void*)magic_number, sizeof(uint8_t), 4, f);
+	int size = get_magic(magic_number[2]);
+	int fuckoff = sizeof(uint8_t) * 4;
+	fgetpos(f, &pos);
+	difference = pos - last_pos;
+	fgetpos(f, &last_pos);
+	int items = 0;
+	fread((void *) &items, sizeof(int), 1, f);
+	items = reverse(items);
+
+	int dimentions = magic_number[3] - 1;
+	int* dimention = (int*)malloc(sizeof(int)*dimentions);
+	fgetpos(f, &pos);
+	difference = pos - last_pos;
+	fgetpos(f, &last_pos);
+	fread((void*)dimention, sizeof(int), dimentions, f);
+	int length = 1;
+	for (int i = 0; i < dimentions; ++i) {
+		length *= reverse(dimention[i]);
+	}
+	difference = pos - last_pos;
+	vector** output = (vector**)malloc(items * sizeof(vector*));
+	fgetpos(f, &pos);
+	for (int data = 0; data < items; ++data) {
+		fgetpos(f, &last_pos);
+		output[data] = read_letter(f, size, length);
+		fgetpos(f, &pos);
+		difference = pos - last_pos;
+	}
+	fclose(f);
+	return output;
+}
+
 database* build_minst_testing_database(){
 	int images = 10000, height = 28, width = 28;
 	database *testing = build_database(images);
@@ -108,8 +172,8 @@ database* build_minst_testing_database(){
 		for(int element = 0; element < height * width; element++){
 			set_element(*(testing->inputs[image]), element, (float)image_data[element]);
 		}
-		print_letter(*testing->inputs[image]);
 	}
+	print_minst_letter(*testing->inputs[0]);
 	fclose(inputs);
 	printf("read testing inputs\n");
 
@@ -140,7 +204,7 @@ void initialize_minst_testing(){
 
 	//build image databases
 	training = build_minst_training_database();
-	testing = build_minst_testing_database();
+	/*testing = build_minst_testing_database();
 
 	d_training = build_database(training->size);
 	d_testing = build_database(testing->size);
@@ -175,14 +239,46 @@ void initialize_minst_testing(){
 	database *d_learning_factor = sample_database(d_training, sample_size);
 	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.000045, 0.000055, 0.000005, streams, number_of_streams);//0.000005;
 	printf("best learning factor %f\n", learning_factor);
+	*/
 }
 
-void print_letter(vector h_letter) {
+void print_minst_letter(vector h_letter) {
 	for (int row = 0; row < 28;++row) {
 		for (int col = 0; col < 28;++col) {
-			printf("%d ", get_element(h_letter, row*28 + col));
+			printf("%d ", (int)get_element(h_letter, row*28 + col));
 		}
 		printf("\n");
 	}
 	printf("\n");
+}
+
+
+vector* read_letter(FILE* f, int size, int length) {
+	vector* letter = build_vector(length);
+	uint8_t* pixel_value = (uint8_t*)malloc(sizeof(uint8_t) * length);
+	fread((void*)pixel_value, size, length, f);
+	for (int element = 0; element < letter->length; ++element) {
+		set_element(*letter, element, pixel_value[element]);
+	}
+	return letter;
+}
+
+int get_magic(int8_t magic) {
+	int size = -1;
+	switch (magic) {
+	case (0x08): size = sizeof(char);
+		break;
+	case(0x09): size = sizeof(char);
+		break;
+	case(0x0B): size = sizeof(short);
+		break;
+	case(0x0C): size = sizeof(int);
+		break;
+	case(0x0D): size = sizeof(float);
+		break;
+	case(0x0E): size = sizeof(double);
+		break;
+	default: printf("invalid magic number\n");
+	}
+	return size;
 }
