@@ -9,8 +9,6 @@ database* build_database(int size){
 }
 
 database* sample_database(database *db, int size){
-	if(size > (db->size)/2){return db;}
-
 	database* sample = build_database(size);
 	int *indices = (int*)malloc(sizeof(int)*size);
 	for(int element = 0; element < size; ++element){

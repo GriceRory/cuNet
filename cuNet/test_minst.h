@@ -8,18 +8,16 @@ void initialize_minst_testing();
 void print_minst_letter(vector h_letter);
 vector** read_IDX(char* file);
 int get_magic(int8_t magic);
-vector* read_letter(FILE *f, int size, int length);
+vector* read_vector(uint8_t* data, int size, int length, int letter);
+
+
+
+
+
 
 int test_minst(){
-	vector** training_images = read_IDX((char *)"C:\\MNIST\\train-images.idx3-ubyte");
-
-	//training_images = read_IDX((char*)"C:\\MNIST\\t10k-images.idx3-ubyte");
-
-	//vector** training_labels = read_IDX("C:\\MNIST\\train-labels.idx1-ubyte");
-
-	
-	/*initialize_minst_testing();
-	
+	initialize_minst_testing();
+	/*
 	printf("\n\nstarting training\n\n\n");
 	database* h_sample = sample_database(training, sample_size);
 	print_minst_letter(*(h_sample->inputs[0]));
@@ -68,7 +66,8 @@ int test_minst(){
 		printf("failed with %f epocs_with_increased_error / max_epocs\n", epocs_with_increased_error / max_epocs);
 	}
 
-	printf("testing probability of success was %f\n", testing_success_probability);*/
+	printf("testing probability of success was %f\n", testing_success_probability);
+	*/
 	return failed;
 }
 
@@ -83,120 +82,59 @@ unsigned int reverse(unsigned int x)
 }
 
 database* build_minst_training_database(){
-	int images = 60000, height = 28, width = 28;
-	database *training = build_database(images);
-	FILE *inputs = fopen("C:\\MNIST\\train-images.idx3-ubyte", "r");
-	int32_t meta_data[4];
-	//fread((void*)meta_data, sizeof(uint8_t), 1, inputs);
-	fread((void *) meta_data, sizeof(int32_t), 4, inputs);
-	printf("%d, %d, %d, %d\n\n", meta_data[0], meta_data[1], meta_data[2], meta_data[3]);
-	for (int i = 0; i < 4; ++i) {
-		int32_t d = meta_data[i];
-		meta_data[i] = reverse(d);
-	}
-	printf("%d, %d, %d, %d\n\n", meta_data[0], meta_data[1], meta_data[2], meta_data[3]);
-	uint8_t *image_data = (uint8_t*)malloc(sizeof(uint8_t) * height*width);
-	for(int image = 0; image < images; image++){
-		fread((void *) image_data, sizeof(uint8_t), height*width, inputs);
-		training->inputs[image] = build_vector(height*width);
-		for(int element = 0; element < height * width; element++){
-			set_element(*(training->inputs[image]), element, (float)image_data[element]);
-		}
-	}
-	fclose(inputs);
-	printf("read training inputs\n");
-
-	uint8_t image_label;
-	FILE *outputs = fopen("C:\\MNIST\\train-labels.idx1-ubyte", "r");
-	fread((void *) meta_data, sizeof(int32_t), 2, outputs);
-	for(int image = 0; image < images; image++){
-		fread((void*) &image_label, sizeof(uint8_t), 1, outputs);
-		training->outputs[image] = build_vector(letters);
-		set_element(*training->outputs[image], image_label, 1);
-	}
-	fclose(outputs);
-	printf("read training outputs\n");
+	database* training = build_database(60000);
+	free(training->inputs);
+	free(training->outputs);
+	training->inputs = read_IDX(training_images_IDX);
+	training->outputs = read_IDX(training_labels_IDX);
 	return training;
 }
 
 vector** read_IDX(char* file) {
-	fpos_t pos, last_pos;
-	int difference = 0;
 	FILE* f = fopen(file, "r");
 	uint8_t magic_number[4];
-	fgetpos(f, &last_pos);
-	fread((void*)magic_number, sizeof(uint8_t), 4, f);
+	size_t bytes_read = fread((void*)magic_number, sizeof(uint8_t), 4, f);
 	int size = get_magic(magic_number[2]);
-	int fuckoff = sizeof(uint8_t) * 4;
-	fgetpos(f, &pos);
-	difference = pos - last_pos;
-	fgetpos(f, &last_pos);
-	int items = 0;
-	fread((void *) &items, sizeof(int), 1, f);
+	int items;
+	bytes_read = fread((void *) &items, sizeof(int), 1, f);
 	items = reverse(items);
 
 	int dimentions = magic_number[3] - 1;
 	int* dimention = (int*)malloc(sizeof(int)*dimentions);
-	fgetpos(f, &pos);
-	difference = pos - last_pos;
-	fgetpos(f, &last_pos);
-	fread((void*)dimention, sizeof(int), dimentions, f);
+
+	bytes_read = fread((void*)dimention, sizeof(int), dimentions, f);
+
 	int length = 1;
 	for (int i = 0; i < dimentions; ++i) {
 		length *= reverse(dimention[i]);
 	}
-	difference = pos - last_pos;
 	vector** output = (vector**)malloc(items * sizeof(vector*));
-	fgetpos(f, &pos);
-	for (int data = 0; data < items; ++data) {
-		fgetpos(f, &last_pos);
-		output[data] = read_letter(f, size, length);
-		fgetpos(f, &pos);
-		difference = pos - last_pos;
+	
+	uint8_t* datastream = (uint8_t*)malloc(items*length*size);
+	
+	bytes_read = fread((void*)datastream, size, length*items, f);
+	for (int item = 0; item < items; ++item) {
+		output[item] = read_vector(datastream, size, length, item);
 	}
 	fclose(f);
 	return output;
 }
 
 database* build_minst_testing_database(){
-	int images = 10000, height = 28, width = 28;
-	database *testing = build_database(images);
-	FILE *inputs = fopen("C:\\MNIST\\t10k-images.idx3-ubyte", "r");
-	int32_t meta_data[4];
-	fread((void *) meta_data, sizeof(int32_t), 4, inputs);
-
-	uint8_t *image_data = (uint8_t*)malloc(sizeof(uint8_t) * height*width);
-	for(int image = 0; image < images; image++){
-		fread((void *) image_data, sizeof(uint8_t), height*width, inputs);
-		testing->inputs[image] = build_vector(height*width);
-		for(int element = 0; element < height * width; element++){
-			set_element(*(testing->inputs[image]), element, (float)image_data[element]);
-		}
-	}
-	print_minst_letter(*testing->inputs[0]);
-	fclose(inputs);
-	printf("read testing inputs\n");
-
-	uint8_t image_label;
-	FILE *outputs = fopen("C:\\MNIST\\t10k-labels.idx1-ubyte", "r");
-	fread((void *) meta_data, sizeof(int32_t), 2, outputs);
-	for(int image = 0; image < images; image++){
-		fread((void*) &image_label, sizeof(uint8_t), 1, outputs);
-		testing->outputs[image] = build_vector(letters);
-		set_element(*testing->outputs[image], image_label, 1);
-	}
-	fclose(outputs);
-	printf("read testing outputs\n");
+	database *testing = build_database(10000);
+	free(testing->inputs);
+	free(testing->outputs);
+	testing->inputs = read_IDX(testing_images_IDX);
+	testing->outputs = read_IDX(testing_labels_IDX);
 	return testing;
 }
-
 
 void initialize_minst_testing(){
 	printf("testing MINST\n");
 	//constants
 	failed = 0;
 	layers = 10;
-	sample_size = 100;
+	sample_size = 200;
 	max_epocs = 5000;
 	max_weight = 1.0;
 	max_bias = 1.0;
@@ -204,63 +142,73 @@ void initialize_minst_testing(){
 
 	//build image databases
 	training = build_minst_training_database();
-	/*testing = build_minst_testing_database();
+	testing = build_minst_testing_database();
 
 	d_training = build_database(training->size);
 	d_testing = build_database(testing->size);
 
 	copy_database(training, d_training, cudaMemcpyHostToDevice);
 	copy_database(testing, d_testing, cudaMemcpyHostToDevice);
-
+	
 	//sample image database
-	d_training_sample = sample_database(d_training, sample_size);
+	training_sample = sample_database(training, sample_size);
+	d_training_sample = build_database(sample_size);
+	copy_database(training_sample, d_training_sample, cudaMemcpyHostToDevice);
 
 	printf("databases built\n");
-
+	
 
 	//building host and device networks
 	int* nodes = (int*)malloc(layers * sizeof(int));
+	
+	float input_length = (float)training->inputs[0]->length;
+	float output_length = (float)training->outputs[0]->length;
+	
+	float gradient = ((input_length - output_length) / (layers - 1));
+	
 	for(int i = 0; i < layers; ++i){
-		nodes[i] = training->inputs[0]->length - ((float)(training->inputs[0]->length - training->outputs[0]->length)/(layers-1))*i;
+		nodes[i] = input_length - gradient*i;
 	}
+
 	h_net = build_network(layers, nodes);
 	d_net = cuda_build_network(layers, nodes);
 	randomize_network(h_net, max_weight, max_bias);
 	copy_network(&h_net, &d_net, cudaMemcpyHostToDevice);
 
 	//building the set of possible vectors
-	for(int i = 0; i < letters; ++i){
-		possible[i] = build_vector(letters);
+	for(int i = 0; i < numbers; ++i){
+		possible[i] = build_vector(numbers);
 		set_element(*possible[i], i, 1);
 	}
 	
 	//finds the best learning factor at the start
 	printf("calculating best learning factor\n");
-	database *d_learning_factor = sample_database(d_training, sample_size);
-	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.000045, 0.000055, 0.000005, streams, number_of_streams);//0.000005;
+	database* h_learning_factor = sample_database(training, sample_size);
+	database* d_learning_factor = build_database(sample_size);
+	copy_database(h_learning_factor, d_learning_factor, cudaMemcpyHostToDevice);
+	learning_factor = calculate_best_learning_factor(&d_net, d_learning_factor, 10, 0.0, 100.0, 10.0, streams, number_of_streams);
 	printf("best learning factor %f\n", learning_factor);
-	*/
 }
 
 void print_minst_letter(vector h_letter) {
-	for (int row = 0; row < 28;++row) {
-		for (int col = 0; col < 28;++col) {
-			printf("%d ", (int)get_element(h_letter, row*28 + col));
+	for (int element = 0; element < h_letter.length; ++element) {	
+		if (!(element % 28)) {
+			printf("\n");
 		}
-		printf("\n");
+		if ((int)get_element(h_letter, element) < 0X10) {
+			printf("0");
+		}
+		printf("%x ", (int)get_element(h_letter, element));
 	}
-	printf("\n");
+	printf("\n\n\n");
 }
 
-
-vector* read_letter(FILE* f, int size, int length) {
-	vector* letter = build_vector(length);
-	uint8_t* pixel_value = (uint8_t*)malloc(sizeof(uint8_t) * length);
-	fread((void*)pixel_value, size, length, f);
-	for (int element = 0; element < letter->length; ++element) {
-		set_element(*letter, element, pixel_value[element]);
+vector* read_vector(uint8_t* data, int size, int length, int item) {
+	vector* vector = build_vector(length);
+	for (int element = 0; element < length; ++element) {
+		set_element(*vector, element, (float)data[item * length + element]);
 	}
-	return letter;
+	return vector;
 }
 
 int get_magic(int8_t magic) {

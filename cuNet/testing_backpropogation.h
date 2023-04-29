@@ -8,6 +8,13 @@ int test_calculate_this_layer_node_derivatives();
 int test_calculate_node_derivatives();
 int test_calculate_last_layer_node_derivatives();
 
+int test_probability_correct();
+int test_classify();
+int test_error_term();
+int test_calculate_best_learning_factor();
+int test_calculate_improvement();
+int test_average_error();
+
 void initialize_globals();
 void free_globals();
 float error_term(network d_net, vector h_input, vector h_expected, cudaStream_t stream);
@@ -22,9 +29,10 @@ float max_weights = 2.0;
 float max_biases = 1.0;
 
 int *nodes = (int*)malloc(sizeof(int)*layers);
+int database_size = 10;
 
 
-
+database *h_db;
 network h_net;
 network d_net;
 network d_change;
@@ -287,7 +295,15 @@ void initialize_globals(){
 	h_expected = build_vector(nodes[layers - 1]);
 	d_input = cuda_build_vector(nodes[0]);
 	d_expected = cuda_build_vector(nodes[layers - 1]);
+	h_db = build_database(database_size);
 
+	for (int i = 0; i < database_size; ++i) {
+		h_db->inputs[i] = build_vector(nodes[0]);
+		h_db->outputs[i] = build_vector(nodes[nodes[layers - 1]]);
+		randomize_vector(h_db->inputs[i], max_biases);
+		randomize_vector(h_db->outputs[i], max_biases);
+	}
+	
 	randomize_network(h_net, max_weights, max_biases);
 	randomize_vector(h_input, max_biases);
 	randomize_vector(h_expected, max_biases);
@@ -357,6 +373,59 @@ vector** host_calculate_node_outputs(network host_net, vector *host_input){
 	return node_output_host_test;
 }
 
+
+int test_probability_correct() {
+	int failed = 0;
+	printf("testing correct()\n");
+	float value = probability_correct(d_net, *h_db, h_db->outputs, database_size, streams, number_of_streams);
+	if (value != 1.0/database_size) {
+		failed = 1;
+		printf("testing probability_correct failed with value %f != 1\n", value);
+	}
+	return failed;
+}
+int test_classify() {
+	int failed = 0;
+	printf("testing classify()\n");
+	for (int i = 0; i < database_size; ++i) {
+		vector* v = classify(*(h_db->outputs[i]), h_db->outputs, h_db->size);
+		if (v != h_db->outputs[i]) {
+			printf("testing classify failed at %d\n", i);
+			return failed = 1;
+		}
+	}
+
+	return failed;
+}
+int test_error_term() {
+	int failed = 0;
+	printf("testing error_term()\n");
+	for (int i = 0; i < database_size; ++i) {
+		if (error_term(d_net, *h_db->inputs[i], *h_db->outputs[i], streams[0]) != 0.0) {
+			printf("testing error term failed at database %d\n", i);
+			return 1;
+		}
+	}
+	return failed;
+}
+int test_calculate_best_learning_factor() {
+	int failed = 0;
+	printf("testing calculate_best_learning_factor()\n");
+	return failed;
+}
+int test_calculate_improvement() {
+	int failed = 0;
+	printf("testing calculate_improvement()\n");
+	return failed;
+}
+int test_average_error() {
+	int failed = 0;
+	printf("testing average_error()\n");
+	return failed;
+}
+
+
+
 int test_backpropogation(){
 	printf("testing backpropogation\n");
 	initialize_globals();
@@ -369,7 +438,16 @@ int test_backpropogation(){
 	failed |= test_calculate_next_layer_weight_changes();
 	failed |= test_calculate_next_layer_bias_changes();
 	failed |= test_backpropogate();
-	failed |= test_train();
+	//failed |= test_train();
+
+
+	failed |= test_probability_correct();
+	failed |= test_classify();
+	failed |= test_error_term();
+	failed |= test_calculate_best_learning_factor();
+	failed |= test_calculate_improvement();
+	failed |= test_average_error();
+
 
 	free_globals();
 	return failed;

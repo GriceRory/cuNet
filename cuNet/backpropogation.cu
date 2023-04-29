@@ -140,32 +140,18 @@ vector** calculate_nodes(network *d_net, vector *d_input, cudaStream_t stream){
 	return node_outputs;
 }
 
-//to do
-//the memory management will need to be sorted out because some of these functions 
-//that I am using require host memory, not device memory like I am using in thse.
+
 float calculate_best_learning_factor(network *d_net, database *d_db, int tests_per_learning_factor, float learning_minimum, float learning_maximum, float learning_step_size, cudaStream_t *streams, int number_of_streams) {
 	float best = learning_minimum;
-	float best_error_improvement = 0.0;
+	float best_error_improvement = -10000.0;
 	network h_net = build_network(d_net->number_of_layers, d_net->nodes_in_layer);
 	copy_network(d_net, &h_net, cudaMemcpyDeviceToHost);
 	database *h_db = build_database(d_db->size);
 	copy_database(d_db, h_db, cudaMemcpyDeviceToHost);
 	for (float current = learning_minimum; current < learning_maximum; current += learning_step_size) {
-		float error_improvement = 0;
-		for (int element = 0; element < h_db->size; ++element) {
-			error_improvement += error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], streams[element % number_of_streams]);
-		}
-
-		for (int i = 0; i < tests_per_learning_factor; ++i) {
-			train(d_net, d_db, current, streams, number_of_streams);
-		}
-
-		for (int element = 0; element < h_db->size; ++element) {
-			error_improvement -= error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], streams[element % number_of_streams]);
-		}
-		copy_network(&h_net, d_net, cudaMemcpyHostToDevice);
-		error_improvement /= d_db->size;
-
+		
+		float error_improvement = calculate_improvement(h_db, d_net, &h_net, tests_per_learning_factor, d_db, streams, number_of_streams, current);
+		
 		if (error_improvement > best_error_improvement) {
 			printf("best so far\n");
 			best_error_improvement = error_improvement;
@@ -177,14 +163,11 @@ float calculate_best_learning_factor(network *d_net, database *d_db, int tests_p
 	return best;
 }
 
-float correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs, cudaStream_t *streams, int number_of_streams){
+float probability_correct(network d_net, database h_db, vector** possible_outputs, int number_of_possible_outputs, cudaStream_t *streams, int number_of_streams){
 	float probability = 0;
-	vector *h_output = build_vector(1);
+	vector *h_output = build_vector(possible_outputs[0]->length);
 	for(int element = 0; element < h_db.size; ++element){
 		run_network(d_net, *h_db.inputs[element], h_output, streams[element%number_of_streams]);
-		if (element < 5) { 
-			print_vector(*h_output);
-		}
 		vector *classification = classify(*h_output, possible_outputs, number_of_possible_outputs);
 		if(equals(*classification, *h_db.outputs[element])){
 			++probability;
@@ -222,4 +205,22 @@ float average_error(network *d_net, database *h_sample, cudaStream_t *streams, i
 		error += error_term(*d_net, *h_sample->inputs[element], *h_sample->outputs[element], streams[element % number_of_streams]);
 	}
 	return error/h_sample->size;
+}
+
+float calculate_improvement(database* h_db, network* d_net, network* h_net, int tests_per_learning_factor, database* d_db, cudaStream_t* s, int streams, float learning_factor) {
+	float error_improvement = 0;
+	for (int element = 0; element < h_db->size; ++element) {
+		error_improvement += error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], s[element % streams]);
+	}
+
+	for (int i = 0; i < tests_per_learning_factor; ++i) {
+		train(d_net, d_db, learning_factor, s, streams);
+	}
+
+	for (int element = 0; element < h_db->size; ++element) {
+		error_improvement -= error_term(*d_net, *h_db->inputs[element], *h_db->outputs[element], s[element % streams]);
+	}
+	copy_network(h_net, d_net, cudaMemcpyHostToDevice);
+	error_improvement /= d_db->size;
+	return error_improvement;
 }

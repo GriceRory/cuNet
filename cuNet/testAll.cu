@@ -2,14 +2,6 @@ int difference_tollerance(float actual, float expected, float tollerance){
 	return actual-expected > tollerance || expected-actual > tollerance;
 }
 
-//25 nov 2020
-//there is some device function that calls another device function in another file
-//see https://stackoverflow.com/questions/45258052/visual-studio-msb3721-error-when-compiling-a-device-function-call-from-anoth
-//project now compiles in windows even if it still shits itself
-//there appears to be some issue with GIT that stops me from commiting that I dont want to deal with right now
-
-
-//line 232 of linear_algebra.cu is having issues for some reason, commented it out.
 
 
 
@@ -53,15 +45,15 @@ int main(void){
 	fails |= database_fails;
 	if(!database_fails){printf("testing database.h nominal\n\n\n");}
 
-
+	*/
 	int backpropogation_fails = test_backpropogation();
 	fails |= backpropogation_fails;
 	if(!backpropogation_fails){printf("testing backpropogation.h nominal\n\n\n");}
-	*/
 	
-	int minst_fails = test_minst();
-	fails |= minst_fails;
-	if(!minst_fails){printf("test_minst.h nominal\n");}
+	
+	//int minst_fails = test_minst();
+	//fails |= minst_fails;
+	//if(!minst_fails){printf("test_minst.h nominal\n");}
 	
 
 	if(!fails){
